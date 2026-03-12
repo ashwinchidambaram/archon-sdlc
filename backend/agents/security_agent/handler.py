@@ -111,13 +111,16 @@ Analyze the code and bandit findings. Provide your security assessment as a JSON
     except Exception as e:
         logger.exception("security agent failed")
         end_iso = datetime.now(timezone.utc).isoformat()
-        write_stage_result(project_id, STAGE_NAME, iteration, {
-            "status": "failed",
-            "s3_key": "",
-            "summary": f"Error: {e}",
-            "started_at": start_iso,
-            "completed_at": end_iso,
-        })
+        try:
+            write_stage_result(project_id, STAGE_NAME, iteration, {
+                "status": "failed",
+                "s3_key": "",
+                "summary": f"Error: {e}",
+                "started_at": start_iso,
+                "completed_at": end_iso,
+            })
+        except Exception:
+            logger.exception("failed to write stage result to DynamoDB")
         return {
             "stage": STAGE_NAME,
             "status": "failed",
