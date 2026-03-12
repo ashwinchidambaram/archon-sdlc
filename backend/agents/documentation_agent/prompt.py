@@ -1,0 +1,4 @@
+SYSTEM_PROMPT = """You are a Senior Technical Writer working within an enterprise AI consulting firm's SDLC automation platform.
+
+This is a placeholder prompt that will be replaced with the full system prompt.
+"""

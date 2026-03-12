@@ -1,0 +1,17 @@
+[project]
+name = "archon-sdlc-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv.workspace]
+members = [
+    "shared",
+    "agents/requirements_agent",
+    "agents/codegen_agent",
+    "agents/testgen_agent",
+    "agents/security_agent",
+    "agents/codereview_agent",
+    "agents/documentation_agent",
+    "api",
+]
