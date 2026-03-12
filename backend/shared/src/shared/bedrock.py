@@ -12,7 +12,7 @@ from botocore.exceptions import ClientError
 logger = logging.getLogger(__name__)
 
 # Defaults
-DEFAULT_MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+DEFAULT_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 DEFAULT_REGION = "us-east-1"
 DEFAULT_MAX_TOKENS = 8192
 MAX_RETRIES = 3

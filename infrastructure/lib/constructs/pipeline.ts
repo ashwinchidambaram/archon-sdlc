@@ -20,7 +20,7 @@ export class PipelineConstruct extends Construct {
   constructor(scope: Construct, id: string, props: PipelineConstructProps) {
     super(scope, id);
 
-    const bedrockModelId = 'us.anthropic.claude-sonnet-4-20250514-v1:0';
+    const bedrockModelId = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
 
     // Common Lambda props
     const commonLambdaProps: Partial<lambda.FunctionProps> = {
