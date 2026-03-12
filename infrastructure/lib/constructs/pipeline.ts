@@ -67,7 +67,7 @@ export class PipelineConstruct extends Construct {
         new iam.PolicyStatement({
           actions: ['bedrock:InvokeModel'],
           resources: [
-            `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/anthropic.claude-*`,
+            'arn:aws:bedrock:*::foundation-model/anthropic.claude-*',
             `arn:aws:bedrock:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:inference-profile/us.anthropic.claude-*`,
           ],
         })
