@@ -1,5 +1,4 @@
-import json
-import time
+import logging
 from datetime import datetime, timezone
 
 from shared.bedrock import invoke_model
@@ -7,15 +6,19 @@ from shared.s3 import write_artifact
 from shared.dynamodb import write_stage_result
 from prompt import SYSTEM_PROMPT
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+STAGE_NAME = "requirements"
+
 
 def lambda_handler(event, context):
     start_iso = datetime.now(timezone.utc).isoformat()
+    project_id = event.get("project_id", "unknown")
+    iteration = event.get("iteration", 0)
 
     try:
-        project_id = event["project_id"]
-        execution_id = event["execution_id"]
-        iteration = event.get("iteration", 0)
-        project_context = event["project_context"]
+        project_context = event.get("project_context", {})
 
         name = project_context.get("name", "")
         description = project_context.get("description", "")
@@ -51,7 +54,7 @@ Produce a complete technical specification document following the required outpu
         section_count = spec_content.count("\n### ")
         summary = f"Generated technical specification with {section_count} sections"
 
-        write_stage_result(project_id, "requirements", iteration, {
+        write_stage_result(project_id, STAGE_NAME, iteration, {
             "status": "completed",
             "s3_key": s3_key,
             "summary": summary,
@@ -65,8 +68,10 @@ Produce a complete technical specification document following the required outpu
             }
         })
 
+        logger.info("requirements complete: %s", summary)
+
         return {
-            "stage": "requirements",
+            "stage": STAGE_NAME,
             "status": "completed",
             "s3_key": s3_key,
             "summary": summary,
@@ -80,10 +85,28 @@ Produce a complete technical specification document following the required outpu
         }
 
     except Exception as e:
+        logger.exception("requirements agent failed")
+        end_iso = datetime.now(timezone.utc).isoformat()
+        try:
+            write_stage_result(project_id, STAGE_NAME, iteration, {
+                "status": "failed",
+                "s3_key": "",
+                "summary": f"Error: {e}",
+                "started_at": start_iso,
+                "completed_at": end_iso,
+            })
+        except Exception:
+            logger.exception("failed to write stage result to DynamoDB")
         return {
-            "stage": "requirements",
+            "stage": STAGE_NAME,
             "status": "failed",
-            "summary": str(e),
-            "iteration": event.get("iteration", 0),
-            "metadata": {}
+            "s3_key": "",
+            "summary": f"Error: {e}",
+            "iteration": iteration,
+            "metadata": {
+                "model_id": "unknown",
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "duration_seconds": 0,
+            },
         }
