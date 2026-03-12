@@ -133,8 +133,12 @@ def parse_json_response(content: str) -> dict:
     # Strip markdown code fences if present
     if text.startswith("```"):
         # Remove opening fence (```json or ```)
-        first_newline = text.index("\n")
-        text = text[first_newline + 1 :]
+        newline_pos = text.find("\n")
+        if newline_pos == -1:
+            # Malformed fence with no newline — strip the fence prefix
+            text = text.lstrip("`").lstrip("json").strip()
+        else:
+            text = text[newline_pos + 1 :]
         # Remove closing fence
         if text.endswith("```"):
             text = text[: -3].strip()
