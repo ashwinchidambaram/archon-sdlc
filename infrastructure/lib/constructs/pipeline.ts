@@ -51,7 +51,7 @@ export class PipelineConstruct extends Construct {
     for (const agentName of agentNames) {
       const fn = new lambda.Function(this, `${agentName}-fn`, {
         ...commonLambdaProps,
-        functionName: `sdlc-${agentName.replace('_', '-')}`,
+        functionName: `sdlc-${agentName.replace(/_/g, '-')}`,
         handler: 'handler.lambda_handler',
         code: lambda.Code.fromAsset(
           path.join(__dirname, `../../../backend/agents/${agentName}/package`)
@@ -75,28 +75,6 @@ export class PipelineConstruct extends Construct {
 
     // ─── Step Functions State Machine ───────────────────────────────
 
-    // Agent task helper — creates a Lambda invoke task with standard config
-    const makeAgentTask = (
-      taskId: string,
-      agentName: string,
-      payloadOverride: { [key: string]: sfn.JsonPath | any }
-    ): tasks.LambdaInvoke => {
-      return new tasks.LambdaInvoke(this, taskId, {
-        lambdaFunction: this.agentFunctions[agentName],
-        payload: sfn.TaskInput.fromObject(payloadOverride),
-        resultSelector: {
-          'stage.$': '$.Payload.stage',
-          'status.$': '$.Payload.status',
-          's3_key.$': '$.Payload.s3_key',
-          'summary.$': '$.Payload.summary',
-          'iteration.$': '$.Payload.iteration',
-          'verdict.$': '$.Payload.verdict',
-          'metadata.$': '$.Payload.metadata',
-        },
-        retryOnServiceExceptions: true,
-      });
-    };
-
     // 1. InitializePipeline — set iteration to 0 and initialize stages
     const initializePipeline = new sfn.Pass(this, 'InitializePipeline', {
       result: sfn.Result.fromObject({
@@ -118,39 +96,6 @@ export class PipelineConstruct extends Construct {
         'stages.$': '$.init.stages',
       },
     });
-
-    // 2. Requirements Analysis
-    const requirementsTask = makeAgentTask('RequirementsAnalysis', 'requirements_agent', {
-      'project_id.$': '$.project_id',
-      'execution_id.$': '$$.Execution.Id',
-      'iteration.$': '$.iteration',
-      'project_context.$': '$.project_context',
-      'previous_stages': {},
-    });
-    // Store requirements result
-    const storeRequirements = new sfn.Pass(this, 'StoreRequirements', {
-      parameters: {
-        'project_id.$': '$.project_id',
-        'project_context.$': '$.project_context',
-        'iteration.$': '$.iteration',
-        'stages': {
-          'requirements.$': '$.result',
-          'codegen.$': '$.stages.codegen',
-          'codereview.$': '$.stages.codereview',
-        },
-      },
-      inputPath: '$',
-    });
-
-    // Actually, let me restructure this. The cleaner approach is to use resultPath
-    // to place each agent's output into the state at the right location.
-
-    // Let me redo this with a cleaner state management approach.
-    // The state shape will be:
-    // {
-    //   project_id, project_context, iteration,
-    //   stages: { requirements, codegen, codereview, parallel: [testgen, security] }
-    // }
 
     // Requirements task — result goes to $.stages.requirements
     const requirements = new tasks.LambdaInvoke(this, 'RequirementsAgent', {

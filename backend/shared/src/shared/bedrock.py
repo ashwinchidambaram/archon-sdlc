@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # Defaults
 DEFAULT_MODEL_ID = "anthropic.claude-3-5-sonnet-20241022-v2:0"
 DEFAULT_REGION = "us-east-1"
-DEFAULT_MAX_TOKENS = 4096
+DEFAULT_MAX_TOKENS = 8192
 MAX_RETRIES = 3
 RETRY_BACKOFF_BASE = 2
 
