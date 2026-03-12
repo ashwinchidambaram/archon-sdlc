@@ -1,4 +1,4 @@
-"""Bedrock client wrapper for invoking Claude models."""
+"""Bedrock client wrapper using the model-agnostic Converse API."""
 
 import json
 import logging
@@ -6,13 +6,16 @@ import os
 import time
 from typing import Optional
 
+import re
+
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 
 # Defaults
-DEFAULT_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+DEFAULT_MODEL_ID = "us.amazon.nova-pro-v1:0"
 DEFAULT_REGION = "us-east-1"
 DEFAULT_MAX_TOKENS = 8192
 MAX_RETRIES = 3
@@ -20,9 +23,10 @@ RETRY_BACKOFF_BASE = 2
 
 
 def get_bedrock_client():
-    """Create a Bedrock Runtime client."""
+    """Create a Bedrock Runtime client with extended timeouts for large models."""
     region = os.environ.get("BEDROCK_REGION", DEFAULT_REGION)
-    return boto3.client("bedrock-runtime", region_name=region)
+    config = Config(read_timeout=600, connect_timeout=10)
+    return boto3.client("bedrock-runtime", region_name=region, config=config)
 
 
 def invoke_model(
@@ -32,7 +36,10 @@ def invoke_model(
     max_tokens: int = DEFAULT_MAX_TOKENS,
     temperature: float = 0.2,
 ) -> dict:
-    """Invoke a Claude model via Bedrock with retry logic.
+    """Invoke a model via Bedrock Converse API with retry logic.
+
+    Uses the model-agnostic Converse API which works with all Bedrock models
+    (Anthropic Claude, Amazon Nova, Meta Llama, etc.).
 
     Returns a dict with:
         - content: str (the model's response text)
@@ -44,44 +51,39 @@ def invoke_model(
     model_id = model_id or os.environ.get("BEDROCK_MODEL_ID", DEFAULT_MODEL_ID)
     client = get_bedrock_client()
 
-    request_body = {
-        "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-        "system": system_prompt,
-        "messages": [
-            {
-                "role": "user",
-                "content": user_message,
-            }
-        ],
-    }
-
     last_error = None
     for attempt in range(MAX_RETRIES):
         start_time = time.time()
         try:
-            response = client.invoke_model(
+            response = client.converse(
                 modelId=model_id,
-                contentType="application/json",
-                accept="application/json",
-                body=json.dumps(request_body),
+                system=[{"text": system_prompt}],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [{"text": user_message}],
+                    }
+                ],
+                inferenceConfig={
+                    "maxTokens": max_tokens,
+                    "temperature": temperature,
+                },
             )
 
             duration = time.time() - start_time
-            response_body = json.loads(response["body"].read())
 
+            # Extract text from response
             content = ""
-            for block in response_body.get("content", []):
-                if block.get("type") == "text":
+            for block in response.get("output", {}).get("message", {}).get("content", []):
+                if "text" in block:
                     content += block["text"]
 
-            usage = response_body.get("usage", {})
+            usage = response.get("usage", {})
 
             result = {
                 "content": content,
-                "input_tokens": usage.get("input_tokens", 0),
-                "output_tokens": usage.get("output_tokens", 0),
+                "input_tokens": usage.get("inputTokens", 0),
+                "output_tokens": usage.get("outputTokens", 0),
                 "model_id": model_id,
                 "duration_seconds": round(duration, 2),
             }
@@ -127,7 +129,8 @@ def invoke_model(
 
 
 def parse_json_response(content: str) -> dict:
-    """Parse a JSON response from the model, handling markdown code fences."""
+    """Parse a JSON response from the model, handling markdown code fences,
+    trailing text, and control characters that non-Claude models may produce."""
     text = content.strip()
 
     # Strip markdown code fences if present
@@ -135,7 +138,6 @@ def parse_json_response(content: str) -> dict:
         # Remove opening fence (```json or ```)
         newline_pos = text.find("\n")
         if newline_pos == -1:
-            # Malformed fence with no newline — strip the fence prefix
             text = text.lstrip("`").lstrip("json").strip()
         else:
             text = text[newline_pos + 1 :]
@@ -143,4 +145,24 @@ def parse_json_response(content: str) -> dict:
         if text.endswith("```"):
             text = text[: -3].strip()
 
-    return json.loads(text)
+    # Remove control characters (except \n, \r, \t) that some models inject
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+
+    # Try parsing directly first
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # If that fails, find the first { and last matching } to extract JSON object
+    first_brace = text.find("{")
+    if first_brace == -1:
+        raise json.JSONDecodeError("No JSON object found", text, 0)
+
+    # Walk backwards to find the matching closing brace
+    last_brace = text.rfind("}")
+    if last_brace == -1:
+        raise json.JSONDecodeError("No closing brace found", text, len(text))
+
+    candidate = text[first_brace : last_brace + 1]
+    return json.loads(candidate)
