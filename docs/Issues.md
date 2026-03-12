@@ -144,9 +144,34 @@ This document catalogs every issue hit during the Archon SDLC build and deployme
 
 ---
 
-## 6. Deploy Script Issues
+## 6. API Handler Issues
 
-### 6.1 No issues with `deploy.sh` itself
+### 6.1 Pydantic C extension not cross-platform compatible
+
+- **Problem:** `Runtime.ImportModuleError: No module named 'pydantic_core._pydantic_core'` in API handler Lambdas.
+- **Root Cause:** `uv pip install --target` packages the shared library (which includes Pydantic) using the host machine's platform (macOS ARM64). Lambda runs on Linux ARM64. The `pydantic_core` C extension is compiled for the wrong platform.
+- **Fix:** Removed Pydantic imports from API handlers. Validate request bodies with plain dict/isinstance checks instead. Agent Lambdas work because they never directly import Pydantic models.
+- **Prevention:** Don't import Pydantic in API handlers. The shared library can use Pydantic internally only if agents are the consumers (they're packaged differently). For cross-platform compatibility, use `--platform manylinux2014_aarch64` with uv pip install.
+
+### 6.2 DynamoDB stage results missing stage name and iteration
+
+- **Problem:** Frontend couldn't determine which stage each result belonged to — `get_all_stages()` stripped the sort key without parsing stage/iteration from it.
+- **Root Cause:** `dynamodb.py:get_all_stages()` stripped `pk` and `sk` from items but didn't extract `stage` and `iteration` from the sk format (`STAGE#codegen#iter0`).
+- **Fix:** Added `_parse_stage_sk()` helper to extract stage name and iteration number from the sort key before stripping it. Each item now includes `stage` and `iteration` fields.
+- **Prevention:** When stripping composite keys from DynamoDB items, always extract meaningful fields first.
+
+### 6.3 IAM policy for DescribeExecution requires execution ARN
+
+- **Problem:** `AccessDeniedException` when calling `states:DescribeExecution` — the IAM policy only allowed the state machine ARN.
+- **Root Cause:** `DescribeExecution` requires the execution ARN (`arn:aws:states:region:account:execution:name:id`), not the state machine ARN (`arn:aws:states:region:account:stateMachine:name`). CDK token-based string replace (`stateMachineArn.replace(':stateMachine:', ':execution:')`) doesn't work because CDK tokens aren't resolved at synth time.
+- **Fix:** Used explicit ARN format: `` `arn:aws:states:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:execution:sdlc-pipeline:*` ``.
+- **Prevention:** Always construct execution ARNs explicitly with `cdk.Aws` pseudo-parameters. Don't manipulate CDK token strings with JavaScript string methods.
+
+---
+
+## 7. Deploy Script Issues
+
+### 7.1 No issues with `deploy.sh` itself
 
 The deploy script (`deploy.sh`) has worked reliably throughout. It correctly:
 - Packages all 6 agent Lambdas with shared library

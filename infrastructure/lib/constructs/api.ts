@@ -79,7 +79,10 @@ export class ApiConstruct extends Construct {
 
     const sfnPolicy = new iam.PolicyStatement({
       actions: ['states:StartExecution', 'states:DescribeExecution'],
-      resources: [stateMachineArn],
+      resources: [
+        stateMachineArn,
+        `arn:aws:states:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:execution:sdlc-pipeline:*`,
+      ],
     });
 
     startPipelineFn.addToRolePolicy(sfnPolicy);

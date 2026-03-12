@@ -126,6 +126,15 @@ def get_stage_result(project_id: str, stage: str, iteration: int) -> dict | None
     return item
 
 
+def _parse_stage_sk(sk: str) -> tuple[str, int]:
+    """Parse stage name and iteration from sort key like 'STAGE#codegen#iter0'."""
+    parts = sk.split("#")
+    stage = parts[1] if len(parts) > 1 else "unknown"
+    iter_part = parts[2] if len(parts) > 2 else "iter0"
+    iteration = int(iter_part.replace("iter", "")) if iter_part.startswith("iter") else 0
+    return stage, iteration
+
+
 def get_all_stages(project_id: str) -> list[dict]:
     table = get_table()
     response = table.query(
@@ -136,6 +145,10 @@ def get_all_stages(project_id: str) -> list[dict]:
     items = response.get("Items", [])
     items.sort(key=lambda x: x.get("sk", ""))
     for item in items:
+        sk = item.get("sk", "")
+        stage, iteration = _parse_stage_sk(sk)
+        item["stage"] = stage
+        item["iteration"] = iteration
         item.pop("pk", None)
         item.pop("sk", None)
     return items
