@@ -1,0 +1,73 @@
+import type {
+  CreateProjectRequest,
+  CreateProjectResponse,
+  StartPipelineResponse,
+  Project,
+  StageResult,
+} from '@/types';
+
+const getBaseUrl = (): string => {
+  const baseUrl = import.meta.env.VITE_API_URL;
+  return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+};
+
+const handleResponse = async (response: Response) => {
+  if (!response.ok) {
+    try {
+      const error = await response.json();
+      throw new Error(error.message || error.error || response.statusText);
+    } catch (e) {
+      if (e instanceof Error && e.message !== response.statusText) {
+        throw e;
+      }
+      throw new Error(response.statusText);
+    }
+  }
+  return response;
+};
+
+export const createProject = async (
+  req: CreateProjectRequest
+): Promise<CreateProjectResponse> => {
+  const response = await fetch(`${getBaseUrl()}/projects`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+
+  await handleResponse(response);
+  return response.json();
+};
+
+export const startPipeline = async (
+  projectId: string
+): Promise<StartPipelineResponse> => {
+  const response = await fetch(`${getBaseUrl()}/projects/${projectId}/run`, {
+    method: 'POST',
+  });
+
+  await handleResponse(response);
+  return response.json();
+};
+
+export const getProject = async (projectId: string): Promise<Project> => {
+  const response = await fetch(`${getBaseUrl()}/projects/${projectId}`);
+  await handleResponse(response);
+  return response.json();
+};
+
+export const getStages = async (
+  projectId: string
+): Promise<{ project_id: string; stages: StageResult[] }> => {
+  const response = await fetch(
+    `${getBaseUrl()}/projects/${projectId}/stages`
+  );
+  await handleResponse(response);
+  return response.json();
+};
+
+export const getArtifact = async (s3Key: string): Promise<string> => {
+  const response = await fetch(`${getBaseUrl()}/artifacts/${s3Key}`);
+  await handleResponse(response);
+  return response.text();
+};
