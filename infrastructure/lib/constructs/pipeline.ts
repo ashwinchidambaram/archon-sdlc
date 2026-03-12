@@ -20,7 +20,7 @@ export class PipelineConstruct extends Construct {
   constructor(scope: Construct, id: string, props: PipelineConstructProps) {
     super(scope, id);
 
-    const bedrockModelId = 'anthropic.claude-3-5-sonnet-20241022-v2:0';
+    const bedrockModelId = 'us.anthropic.claude-3-5-sonnet-20241022-v2:0';
 
     // Common Lambda props
     const commonLambdaProps: Partial<lambda.FunctionProps> = {
@@ -66,7 +66,10 @@ export class PipelineConstruct extends Construct {
       fn.addToRolePolicy(
         new iam.PolicyStatement({
           actions: ['bedrock:InvokeModel'],
-          resources: [`arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/anthropic.claude-*`],
+          resources: [
+            `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/anthropic.claude-*`,
+            `arn:aws:bedrock:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:inference-profile/us.anthropic.claude-*`,
+          ],
         })
       );
 
