@@ -2,6 +2,7 @@ import boto3
 import logging
 import os
 from datetime import datetime
+from decimal import Decimal
 
 from boto3.dynamodb.conditions import Key
 
@@ -91,8 +92,20 @@ def write_stage_result(
         item["verdict"] = result["verdict"]
     # drop None values to keep items clean
     item = {k: v for k, v in item.items() if v is not None}
+    item = _sanitize_floats(item)
     table.put_item(Item=item)
     logger.info("wrote stage result %s/%s iter%d", project_id, stage, iteration)
+
+
+def _sanitize_floats(obj):
+    """Recursively convert float values to Decimal for DynamoDB compatibility."""
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    if isinstance(obj, dict):
+        return {k: _sanitize_floats(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_floats(v) for v in obj]
+    return obj
 
 
 def get_stage_result(project_id: str, stage: str, iteration: int) -> dict | None:
