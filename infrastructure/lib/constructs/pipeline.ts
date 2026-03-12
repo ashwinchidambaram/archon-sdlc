@@ -20,20 +20,22 @@ export class PipelineConstruct extends Construct {
   constructor(scope: Construct, id: string, props: PipelineConstructProps) {
     super(scope, id);
 
-    const bedrockModelId = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
+    // Per-agent model assignments (Nova models require inference profile IDs)
+    const agentModelIds: Record<string, string> = {
+      requirements_agent:  'us.amazon.nova-premier-v1:0',
+      codegen_agent:       'mistral.devstral-2-123b',
+      testgen_agent:       'mistral.devstral-2-123b',
+      security_agent:      'us.amazon.nova-pro-v1:0',
+      codereview_agent:    'us.amazon.nova-premier-v1:0',
+      documentation_agent: 'us.amazon.nova-lite-v1:0',
+    };
 
-    // Common Lambda props
+    // Common Lambda props (BEDROCK_MODEL_ID set per-agent below)
     const commonLambdaProps: Partial<lambda.FunctionProps> = {
       runtime: lambda.Runtime.PYTHON_3_12,
       architecture: lambda.Architecture.ARM_64,
       memorySize: 512,
-      timeout: cdk.Duration.minutes(5),
-      environment: {
-        ARTIFACTS_BUCKET: props.bucket.bucketName,
-        PROJECTS_TABLE: props.table.tableName,
-        BEDROCK_MODEL_ID: bedrockModelId,
-        BEDROCK_REGION: cdk.Aws.REGION,
-      },
+      timeout: cdk.Duration.minutes(10),
     };
 
     // Create agent Lambda functions
@@ -56,6 +58,12 @@ export class PipelineConstruct extends Construct {
         code: lambda.Code.fromAsset(
           path.join(__dirname, `../../../backend/agents/${agentName}/package`)
         ),
+        environment: {
+          ARTIFACTS_BUCKET: props.bucket.bucketName,
+          PROJECTS_TABLE: props.table.tableName,
+          BEDROCK_MODEL_ID: agentModelIds[agentName],
+          BEDROCK_REGION: cdk.Aws.REGION,
+        },
         // Security agent needs more memory for bandit
         ...(agentName === 'security_agent' ? { memorySize: 1024 } : {}),
       } as lambda.FunctionProps);
@@ -67,8 +75,8 @@ export class PipelineConstruct extends Construct {
         new iam.PolicyStatement({
           actions: ['bedrock:InvokeModel'],
           resources: [
-            'arn:aws:bedrock:*::foundation-model/anthropic.claude-*',
-            `arn:aws:bedrock:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:inference-profile/us.anthropic.claude-*`,
+            'arn:aws:bedrock:*::foundation-model/*',
+            `arn:aws:bedrock:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:inference-profile/us.*`,
           ],
         })
       );
