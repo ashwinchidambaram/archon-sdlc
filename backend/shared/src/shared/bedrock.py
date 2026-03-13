@@ -3,10 +3,9 @@
 import json
 import logging
 import os
+import re
 import time
 from typing import Optional
-
-import re
 
 import boto3
 from botocore.config import Config

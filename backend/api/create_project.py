@@ -3,10 +3,10 @@ import logging
 import uuid
 from datetime import datetime
 
-logger = logging.getLogger(__name__)
-
 from shared.dynamodb import create_project
 from response import success_response, error_response
+
+logger = logging.getLogger(__name__)
 
 
 def lambda_handler(event, context):

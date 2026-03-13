@@ -1,6 +1,5 @@
 import json
 import logging
-import time
 from datetime import datetime, timezone
 
 from shared.bedrock import invoke_model, parse_json_response
