@@ -37,6 +37,7 @@ infrastructure/outputs.json
 # Screenshots
 screenshots/
 
-# Internal docs
-docs/
+# Internal docs (except screenshots for README)
+docs/*
+!docs/screenshots/
 CLAUDE.md
