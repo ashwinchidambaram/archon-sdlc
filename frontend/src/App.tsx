@@ -1,8 +1,11 @@
 import { useState } from "react"
+import { Loader2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ProjectCreator } from "@/components/ProjectCreator"
 import { PipelineDashboard } from "@/components/PipelineDashboard"
 import { ArtifactViewer } from "@/components/ArtifactViewer"
+import { LoginPage } from "@/components/LoginPage"
+import { AuthProvider, useAuth } from "@/auth/AuthContext"
 import { usePolling } from "@/hooks/usePolling"
 
 function AppContent({ projectId }: { projectId: string }) {
@@ -37,6 +40,19 @@ function AppContent({ projectId }: { projectId: string }) {
 
 function App() {
   const [projectId, setProjectId] = useState<string | null>(null)
+  const { user, isAuthenticated, isLoading, signOut } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage />
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -48,14 +64,23 @@ function App() {
               AI-Powered Multi-Agent Development Pipeline
             </p>
           </div>
-          {projectId && (
+          <div className="flex items-center gap-4">
+            {projectId && (
+              <button
+                onClick={() => setProjectId(null)}
+                className="text-sm text-muted-foreground hover:text-foreground underline"
+              >
+                New Project
+              </button>
+            )}
+            <span className="text-sm text-muted-foreground">{user}</span>
             <button
-              onClick={() => setProjectId(null)}
+              onClick={signOut}
               className="text-sm text-muted-foreground hover:text-foreground underline"
             >
-              New Project
+              Sign Out
             </button>
-          )}
+          </div>
         </div>
       </header>
       <main className="container mx-auto p-6">
@@ -71,4 +96,12 @@ function App() {
   )
 }
 
-export default App
+function AppWithAuth() {
+  return (
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  )
+}
+
+export default AppWithAuth

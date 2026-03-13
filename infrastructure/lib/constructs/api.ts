@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigatewayv2Integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -12,6 +13,8 @@ export interface ApiConstructProps {
   table: dynamodb.Table;
   bucket: s3.Bucket;
   stateMachineArn: string;
+  userPoolId: string;
+  userPoolClientId: string;
 }
 
 export class ApiConstruct extends Construct {
@@ -88,6 +91,14 @@ export class ApiConstruct extends Construct {
     startPipelineFn.addToRolePolicy(sfnPolicy);
     getProjectFn.addToRolePolicy(sfnPolicy);
 
+    const jwtAuthorizer = new HttpJwtAuthorizer(
+      'CognitoAuthorizer',
+      `https://cognito-idp.${cdk.Aws.REGION}.amazonaws.com/${props.userPoolId}`,
+      {
+        jwtAudience: [props.userPoolClientId],
+      },
+    );
+
     // API Gateway HTTP API
     this.api = new apigatewayv2.HttpApi(this, 'HttpApi', {
       apiName: 'sdlc-api',
@@ -110,6 +121,7 @@ export class ApiConstruct extends Construct {
         'CreateProjectIntegration',
         createProjectFn,
       ),
+      authorizer: jwtAuthorizer,
     });
 
     this.api.addRoutes({
@@ -119,6 +131,7 @@ export class ApiConstruct extends Construct {
         'StartPipelineIntegration',
         startPipelineFn,
       ),
+      authorizer: jwtAuthorizer,
     });
 
     this.api.addRoutes({
@@ -128,6 +141,7 @@ export class ApiConstruct extends Construct {
         'GetProjectIntegration',
         getProjectFn,
       ),
+      authorizer: jwtAuthorizer,
     });
 
     this.api.addRoutes({
@@ -137,6 +151,7 @@ export class ApiConstruct extends Construct {
         'GetStagesIntegration',
         getStagesFn,
       ),
+      authorizer: jwtAuthorizer,
     });
 
     this.api.addRoutes({
@@ -146,6 +161,7 @@ export class ApiConstruct extends Construct {
         'GetArtifactIntegration',
         getArtifactFn,
       ),
+      authorizer: jwtAuthorizer,
     });
 
     this.apiUrl = this.api.url!;

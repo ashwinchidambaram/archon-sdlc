@@ -69,6 +69,41 @@ AWS_ARN=$(echo "$CALLER_IDENTITY" | python3 -c "import sys,json; print(json.load
 ok "AWS credentials valid — account: $AWS_ACCOUNT, identity: $AWS_ARN"
 
 # ============================================================
+# 1b. Check Bedrock model access
+# ============================================================
+echo ""
+info "Checking Bedrock model access..."
+
+REQUIRED_MODELS=(
+  "amazon.nova-premier-v1:0"
+  "amazon.nova-pro-v1:0"
+  "amazon.nova-lite-v1:0"
+  "mistral.devstral-2-123b"
+)
+
+BEDROCK_MODELS_MISSING=false
+
+for model_id in "${REQUIRED_MODELS[@]}"; do
+  if aws bedrock get-foundation-model --model-identifier "$model_id" &>/dev/null; then
+    ok "Model available: $model_id"
+  else
+    warn "Model NOT available: $model_id"
+    BEDROCK_MODELS_MISSING=true
+  fi
+done
+
+if [ "$BEDROCK_MODELS_MISSING" = true ]; then
+  echo ""
+  warn "Some Bedrock models are not accessible in this account/region."
+  warn "Enable them at: AWS Console → Bedrock → Model access → Manage model access"
+  warn "Deployment will continue, but the pipeline will fail at runtime for missing models."
+  echo ""
+  read -p "Continue anyway? (y/N) " -n 1 -r
+  echo
+  [[ $REPLY =~ ^[Yy]$ ]] || die "Aborted. Enable the required models and re-run."
+fi
+
+# ============================================================
 # 2. Package backend Lambda functions
 # ============================================================
 echo ""
@@ -159,12 +194,30 @@ else
     --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
     --output text 2>/dev/null || echo "")
 
+  # Attempt to fetch existing Cognito config too
+  USER_POOL_ID=$(aws cloudformation describe-stacks \
+    --stack-name SdlcOrchestratorStack \
+    --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' \
+    --output text 2>/dev/null || echo "")
+  CLIENT_ID=$(aws cloudformation describe-stacks \
+    --stack-name SdlcOrchestratorStack \
+    --query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
+    --output text 2>/dev/null || echo "")
+
   if [ -z "$API_URL" ]; then
-    warn "Stack not yet deployed — building frontend with placeholder API URL"
-    echo "VITE_API_URL=http://localhost:3000" > .env
+    warn "Stack not yet deployed — building frontend with placeholder config"
+    cat > .env <<ENVEOF
+VITE_API_URL=http://localhost:3000
+VITE_COGNITO_USER_POOL_ID=placeholder
+VITE_COGNITO_CLIENT_ID=placeholder
+ENVEOF
   else
     info "Using existing API URL: $API_URL"
-    echo "VITE_API_URL=$API_URL" > .env
+    cat > .env <<ENVEOF
+VITE_API_URL=$API_URL
+VITE_COGNITO_USER_POOL_ID=$USER_POOL_ID
+VITE_COGNITO_CLIENT_ID=$CLIENT_ID
+ENVEOF
   fi
 
   npm run build --silent
@@ -207,14 +260,28 @@ if [ "$FRONTEND_BUILT" = true ] && [ -f "$OUTPUTS_FILE" ]; then
     "import sys,json; d=json.load(open('$OUTPUTS_FILE')); print(d.get('SdlcOrchestratorStack',{}).get('ApiUrl',''))" \
     2>/dev/null || echo "")
 
+  REAL_USER_POOL_ID=$(python3 -c \
+    "import sys,json; d=json.load(open('$OUTPUTS_FILE')); print(d.get('SdlcOrchestratorStack',{}).get('UserPoolId',''))" \
+    2>/dev/null || echo "")
+  REAL_CLIENT_ID=$(python3 -c \
+    "import sys,json; d=json.load(open('$OUTPUTS_FILE')); print(d.get('SdlcOrchestratorStack',{}).get('UserPoolClientId',''))" \
+    2>/dev/null || echo "")
+
   if [ -n "$REAL_API_URL" ]; then
+    # Build the expected .env content
+    EXPECTED_ENV="VITE_API_URL=$REAL_API_URL"
+    [ -n "$REAL_USER_POOL_ID" ] && EXPECTED_ENV="$EXPECTED_ENV
+VITE_COGNITO_USER_POOL_ID=$REAL_USER_POOL_ID"
+    [ -n "$REAL_CLIENT_ID" ] && EXPECTED_ENV="$EXPECTED_ENV
+VITE_COGNITO_CLIENT_ID=$REAL_CLIENT_ID"
+
     CURRENT_ENV=""
     [ -f "$FRONTEND_DIR/.env" ] && CURRENT_ENV=$(cat "$FRONTEND_DIR/.env")
 
-    if [ "$CURRENT_ENV" != "VITE_API_URL=$REAL_API_URL" ]; then
-      info "Rebuilding frontend with real API URL: $REAL_API_URL"
+    if [ "$CURRENT_ENV" != "$EXPECTED_ENV" ]; then
+      info "Rebuilding frontend with real config..."
       cd "$FRONTEND_DIR"
-      echo "VITE_API_URL=$REAL_API_URL" > .env
+      echo "$EXPECTED_ENV" > .env
       npm run build --silent
       cd "$ROOT_DIR"
 
@@ -257,6 +324,19 @@ if [ -f "$OUTPUTS_FILE" ]; then
     echo -e "  API URL : ${GREEN}$API_URL${NC}"
   else
     echo "  API URL : Check CloudFormation outputs"
+  fi
+
+  USER_POOL_ID=$(python3 -c \
+    "import sys,json; d=json.load(open('$OUTPUTS_FILE')); print(d.get('SdlcOrchestratorStack',{}).get('UserPoolId',''))" \
+    2>/dev/null || echo "")
+
+  if [ -n "$USER_POOL_ID" ]; then
+    echo ""
+    echo "  To create a user:"
+    echo -e "    ${CYAN}aws cognito-idp admin-create-user \\\\${NC}"
+    echo -e "    ${CYAN}  --user-pool-id $USER_POOL_ID \\\\${NC}"
+    echo -e "    ${CYAN}  --username user@example.com \\\\${NC}"
+    echo -e "    ${CYAN}  --temporary-password TempPass123!${NC}"
   fi
 else
   echo "  Check CloudFormation outputs in the AWS console"

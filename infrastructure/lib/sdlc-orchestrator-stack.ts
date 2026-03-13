@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import { StorageConstruct } from './constructs/storage';
 import { PipelineConstruct } from './constructs/pipeline';
 import { ApiConstruct } from './constructs/api';
+import { AuthConstruct } from './constructs/auth';
 import { FrontendConstruct } from './constructs/frontend';
 
 export class SdlcOrchestratorStack extends cdk.Stack {
@@ -18,11 +19,16 @@ export class SdlcOrchestratorStack extends cdk.Stack {
       bucket: storage.bucket,
     });
 
+    // Auth: Cognito User Pool
+    const auth = new AuthConstruct(this, 'Auth');
+
     // API: API Gateway + handler Lambdas
     const api = new ApiConstruct(this, 'Api', {
       table: storage.table,
       bucket: storage.bucket,
       stateMachineArn: pipeline.stateMachine.stateMachineArn,
+      userPoolId: auth.userPool.userPoolId,
+      userPoolClientId: auth.userPoolClient.userPoolClientId,
     });
 
     // Frontend: S3 + CloudFront static site
@@ -38,6 +44,14 @@ export class SdlcOrchestratorStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'AppUrl', {
       value: `https://${frontend.distribution.distributionDomainName}`,
       description: 'CloudFront app URL',
+    });
+    new cdk.CfnOutput(this, 'UserPoolId', {
+      value: auth.userPool.userPoolId,
+      description: 'Cognito User Pool ID',
+    });
+    new cdk.CfnOutput(this, 'UserPoolClientId', {
+      value: auth.userPoolClient.userPoolClientId,
+      description: 'Cognito User Pool Client ID',
     });
   }
 }

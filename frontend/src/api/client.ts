@@ -5,10 +5,19 @@ import type {
   Project,
   StageResult,
 } from '@/types';
+import { getIdToken } from '@/auth/cognito';
 
 const getBaseUrl = (): string => {
   const baseUrl = import.meta.env.VITE_API_URL;
   return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+};
+
+const getAuthHeaders = async (): Promise<Record<string, string>> => {
+  const token = await getIdToken();
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return {};
 };
 
 const handleResponse = async (response: Response) => {
@@ -29,9 +38,10 @@ const handleResponse = async (response: Response) => {
 export const createProject = async (
   req: CreateProjectRequest
 ): Promise<CreateProjectResponse> => {
+  const authHeaders = await getAuthHeaders();
   const response = await fetch(`${getBaseUrl()}/projects`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
     body: JSON.stringify(req),
   });
 
@@ -42,8 +52,10 @@ export const createProject = async (
 export const startPipeline = async (
   projectId: string
 ): Promise<StartPipelineResponse> => {
+  const authHeaders = await getAuthHeaders();
   const response = await fetch(`${getBaseUrl()}/projects/${projectId}/run`, {
     method: 'POST',
+    headers: { ...authHeaders },
   });
 
   await handleResponse(response);
@@ -51,7 +63,10 @@ export const startPipeline = async (
 };
 
 export const getProject = async (projectId: string): Promise<Project> => {
-  const response = await fetch(`${getBaseUrl()}/projects/${projectId}`);
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${getBaseUrl()}/projects/${projectId}`, {
+    headers: { ...authHeaders },
+  });
   await handleResponse(response);
   return response.json();
 };
@@ -59,15 +74,20 @@ export const getProject = async (projectId: string): Promise<Project> => {
 export const getStages = async (
   projectId: string
 ): Promise<{ project_id: string; stages: StageResult[] }> => {
+  const authHeaders = await getAuthHeaders();
   const response = await fetch(
-    `${getBaseUrl()}/projects/${projectId}/stages`
+    `${getBaseUrl()}/projects/${projectId}/stages`,
+    { headers: { ...authHeaders } }
   );
   await handleResponse(response);
   return response.json();
 };
 
 export const getArtifact = async (s3Key: string): Promise<string> => {
-  const response = await fetch(`${getBaseUrl()}/artifacts/${s3Key}`);
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${getBaseUrl()}/artifacts/${s3Key}`, {
+    headers: { ...authHeaders },
+  });
   await handleResponse(response);
   return response.text();
 };

@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -10,6 +11,8 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism"
+import { Download, Loader2 } from "lucide-react"
+import JSZip from "jszip"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -607,15 +610,73 @@ function ArtifactContent({ stageKey, rawContent }: { stageKey: string; rawConten
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ArtifactViewer({ stages }: ArtifactViewerProps) {
+const STAGE_FILE_EXT: Record<string, string> = {
+  requirements: "md",
+  documentation: "md",
+  security: "json",
+  codereview: "json",
+}
+
+export function ArtifactViewer({ projectId, stages }: ArtifactViewerProps) {
   const [activeTab, setActiveTab] = useState<string>(STAGE_TABS[0].key)
+  const [downloading, setDownloading] = useState(false)
 
   const parsedStages = parseStages(stages)
   const grouped = groupByStage(parsedStages)
 
+  const handleDownloadAll = useCallback(async () => {
+    setDownloading(true)
+    try {
+      const zip = new JSZip()
+
+      // For each stage, fetch the latest iteration's artifact and add to zip
+      for (const { key } of STAGE_TABS) {
+        const stageResults = grouped[key]
+        if (!stageResults || stageResults.length === 0) continue
+
+        // Get the latest iteration
+        const latest = stageResults.reduce((a, b) => (a.iteration > b.iteration ? a : b))
+        const content = await getArtifact(latest.s3Key)
+
+        const folder = `${key}/iter${latest.iteration}`
+
+        if (key === "codegen" || key === "testgen") {
+          // Parse manifest and add individual source files
+          try {
+            const manifest = JSON.parse(content) as CodeManifest
+            for (const file of manifest.files) {
+              zip.file(`${folder}/${file.path}`, file.content)
+            }
+          } catch {
+            // Fallback: add raw content
+            zip.file(`${folder}/manifest.json`, content)
+          }
+        } else {
+          const ext = STAGE_FILE_EXT[key] ?? "txt"
+          zip.file(`${folder}/${key}.${ext}`, content)
+        }
+      }
+
+      const blob = await zip.generateAsync({ type: "blob" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${projectId}-artifacts.zip`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error("Failed to download artifacts:", err)
+    } finally {
+      setDownloading(false)
+    }
+  }, [grouped, projectId])
+
+  const hasAnyArtifact = parsedStages.length > 0
+
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="flex flex-wrap h-auto gap-1 w-full justify-start bg-gray-100 p-1 rounded-lg">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <TabsList className="flex flex-wrap h-auto gap-1 justify-start bg-gray-100 p-1 rounded-lg">
         {STAGE_TABS.map(({ key, label }) => {
           const hasResults = (grouped[key]?.length ?? 0) > 0
           return (
@@ -631,7 +692,21 @@ export function ArtifactViewer({ stages }: ArtifactViewerProps) {
             </TabsTrigger>
           )
         })}
-      </TabsList>
+        </TabsList>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleDownloadAll}
+          disabled={!hasAnyArtifact || downloading}
+        >
+          {downloading ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4 mr-2" />
+          )}
+          {downloading ? "Zipping..." : "Download All"}
+        </Button>
+      </div>
 
       {STAGE_TABS.map(({ key, label }) => (
         <TabsContent key={key} value={key} className="mt-4">
