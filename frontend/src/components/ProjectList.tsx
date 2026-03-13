@@ -29,6 +29,7 @@ export default function ProjectList({ onSelectProject }: ProjectListProps) {
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fetchKey, setFetchKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,7 +57,7 @@ export default function ProjectList({ onSelectProject }: ProjectListProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [fetchKey]);
 
   if (loading) {
     return (
@@ -68,9 +69,26 @@ export default function ProjectList({ onSelectProject }: ProjectListProps) {
 
   if (error) {
     return (
-      <Alert variant="destructive">
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', padding: '2rem' }}>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <button
+          onClick={() => setFetchKey((k) => k + 1)}
+          style={{
+            backgroundColor: '#D4745E',
+            color: '#F9F7F4',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '0.5rem 1.25rem',
+            fontSize: '0.875rem',
+            cursor: 'pointer',
+            fontWeight: 500,
+          }}
+        >
+          Retry
+        </button>
+      </div>
     );
   }
 

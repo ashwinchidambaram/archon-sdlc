@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getArtifact } from "@/api/client"
+import type { StageResult } from "@/types"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
@@ -18,7 +19,7 @@ import JSZip from "jszip"
 
 interface ArtifactViewerProps {
   projectId: string
-  stages: any[]
+  stages: StageResult[]
 }
 
 interface ParsedStage {
@@ -499,7 +500,7 @@ function CodeReviewViewer({ report }: { report: CodeReviewReport }) {
                     </span>
                     <span style={{ color: '#5A5A5A' }}>{dim.score}/10</span>
                   </div>
-                  <Progress value={dim.score * 10} className="h-2" style={{ '--progress-foreground': '#D4745E' } as React.CSSProperties} />
+                  <Progress value={dim.score * 10} className="h-2" />
                   {dim.feedback && (
                     <p className="text-xs pt-0.5" style={{ color: '#9B9B9B' }}>{dim.feedback}</p>
                   )}

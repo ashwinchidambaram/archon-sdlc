@@ -13,5 +13,6 @@ members = [
     "agents/security_agent",
     "agents/codereview_agent",
     "agents/documentation_agent",
+    "agents/planner_agent",
     "api",
 ]

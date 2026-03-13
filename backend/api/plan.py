@@ -23,6 +23,9 @@ def lambda_handler(event, context):
     if not description:
         return error_response(400, "bad_request", "Missing 'description' field")
 
+    if len(description) > 10000:
+        return error_response(400, "bad_request", "Description exceeds 10,000 character limit")
+
     planner_fn = os.environ.get("PLANNER_FUNCTION_NAME")
     if not planner_fn:
         return error_response(500, "config_error", "Planner function not configured")
@@ -45,5 +48,5 @@ def lambda_handler(event, context):
         })
 
     except Exception as e:
-        logger.exception("plan endpoint failed")
+        logger.exception("plan endpoint failed for: %s", description[:100])
         return error_response(500, "internal_error", str(e))

@@ -372,14 +372,16 @@ function CostPanel({
     }
   }
 
-  // Fallback: if stageMap is empty but raw stages have metadata, sum from stages
+  // Fallback: if stageMap is empty but raw stages have metadata, dedupe by stage (latest iteration only)
   if (stageCosts.length === 0 && stages.length > 0) {
-    for (const s of stages) {
-      if (s.metadata) {
-        const cost = calculateCost(s.metadata);
+    const fallbackMap = groupStages(stages);
+    for (const resolved of fallbackMap.values()) {
+      const meta = resolved.latestResult?.metadata;
+      if (meta) {
+        const cost = calculateCost(meta);
         totalCost += cost;
-        totalInput += s.metadata.input_tokens;
-        totalOutput += s.metadata.output_tokens;
+        totalInput += meta.input_tokens;
+        totalOutput += meta.output_tokens;
       }
     }
   }
@@ -506,12 +508,6 @@ export function PipelineDashboard({
             resolved != null &&
             resolved.maxIteration > 0;
 
-          // Show iteration banner before any stage that has looped
-          const showGenericIterBanner =
-            stageName !== StageName.CODEGEN &&
-            resolved != null &&
-            resolved.maxIteration > 0;
-
           return (
             <div key={stageName} className="space-y-2">
               {showIterBanner && (
@@ -528,19 +524,6 @@ export function PipelineDashboard({
                   <span>
                     Iteration {resolved.maxIteration} — Code Review requested changes
                   </span>
-                </div>
-              )}
-              {showGenericIterBanner && (
-                <div
-                  className="px-4 py-3 rounded-lg"
-                  style={{
-                    backgroundColor: BRAND.warmSand,
-                    fontSize: "14px",
-                    color: BRAND.inkBlack,
-                    fontWeight: 500,
-                  }}
-                >
-                  Iteration {resolved.maxIteration} — Code Review requested changes
                 </div>
               )}
               <StageCard stageName={stageName} resolved={resolved} />

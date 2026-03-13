@@ -1,9 +1,11 @@
+import { useId } from "react";
+
 interface LogoProps {
   size?: number;
 }
 
 export function Logo({ size = 48 }: LogoProps) {
-  const id = `logo-${size}`;
+  const id = useId();
   return (
     <svg
       width={size}
