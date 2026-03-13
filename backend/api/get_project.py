@@ -1,5 +1,8 @@
 import boto3
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 from shared.dynamodb import get_project, get_all_stages, update_project_status
 from response import success_response, error_response
@@ -51,6 +54,6 @@ def lambda_handler(event, context):
 
             except Exception as e:
                 # SFN sync is best-effort; return project data without status update
-                print(f"SFN sync error: {e}")
+                logger.exception("SFN sync error")
 
     return success_response(200, project)

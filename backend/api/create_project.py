@@ -1,6 +1,9 @@
 import json
+import logging
 import uuid
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from shared.dynamodb import create_project
 from response import success_response, error_response
@@ -47,7 +50,7 @@ def lambda_handler(event, context):
     try:
         create_project(project)
     except Exception as e:
-        print(f"DynamoDB error: {e}")
+        logger.exception("DynamoDB error")
         return error_response(500, "internal_error", "Failed to create project")
 
     return success_response(201, {

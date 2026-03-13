@@ -27,6 +27,28 @@ bash deploy.sh
 
 `deploy.sh` packages all Lambda functions, builds the React frontend, bootstraps and deploys the CDK stack, then rebuilds the frontend with the real API URL and Cognito config. Total deploy time is ~5–8 minutes. It outputs the app URL, API URL, and the command to create your first user.
 
+**Creating an account:**
+
+After deploy completes, create a user via the AWS CLI (the User Pool ID is printed in the deploy output):
+
+```bash
+# Create the user
+aws cognito-idp admin-create-user \
+  --user-pool-id <USER_POOL_ID> \
+  --username you@example.com \
+  --temporary-password TempPass123 \
+  --message-action SUPPRESS
+
+# Set a permanent password (skips the force-change-password flow)
+aws cognito-idp admin-set-user-password \
+  --user-pool-id <USER_POOL_ID> \
+  --username you@example.com \
+  --password YourPermanentPassword \
+  --permanent
+```
+
+Then log in at the app URL with the email and permanent password you set. Cognito handles auth — no sign-up page is exposed since this is a single-tenant portfolio project.
+
 ## Architecture
 
 ```mermaid

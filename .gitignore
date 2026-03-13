@@ -31,5 +31,12 @@ cdk.out/
 # Lambda packages
 package/
 
+# CDK outputs
+infrastructure/outputs.json
+
+# Screenshots
+screenshots/
+
 # Internal docs
 docs/
+CLAUDE.md
