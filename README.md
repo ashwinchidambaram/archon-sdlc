@@ -101,13 +101,13 @@ The pipeline runs as a Step Functions Standard Workflow. Test Gen and Security r
 *The dashboard shows each stage with live status, timestamps, and a running cost breakdown. Here, Requirements has completed and the pipeline is moving to Code Gen.*
 
 ![Pipeline Complete](docs/screenshots/04-pipeline-complete.png)
-*All six stages completed. The cost panel shows per-stage token usage and total pipeline cost ($0.21 for this run). Code Gen's summary mentions revising code to address P1 and P2 issues — the feedback loop in action.*
+*All six stages completed. The cost panel shows per-stage token usage and total pipeline cost ($0.16 for this run). Code Gen's summary mentions revising code to address P1 and P2 issues — the feedback loop in action.*
 
 ![Feedback Loop](docs/screenshots/03-feedback-loop.png)
-*The Employee Directory project shows a completed feedback loop: Code Review requested changes on iteration 0, Code Gen revised the code on iteration 1, and the final review approved with comments. The summary reads "revised to address all P1 and P2 issues from the code review."*
+*The pipeline mid-feedback-loop: Code Review requested changes on iteration 0, and Code Gen has just completed its revised implementation on iteration 1. The banner reads "Iteration 1 — Code Review requested changes" while Code Gen's summary confirms it "revised to address all P1 and P2 issues from the code review."*
 
 ![Generated Code](docs/screenshots/05-generated-code.png)
-*The artifact viewer shows generated source code with syntax highlighting. This is `src/main.py` — a complete FastAPI application with routing, CORS, and module imports. The file selector lists all 17 generated files.*
+*The artifact viewer shows generated source code with syntax highlighting. This is `src/main.py` — a complete FastAPI application with routing, CORS, and module imports. The file selector lists all 10 generated files.*
 
 ![Security Report](docs/screenshots/06-security-report.png)
 *The Security agent found 7 issues (2 High, 3 Medium, 2 Low) with an overall risk rating of MEDIUM. Each finding includes a severity badge, source, description, and specific remediation guidance.*
