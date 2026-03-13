@@ -66,6 +66,16 @@ export interface Project {
   stages?: StageResult[];
 }
 
+export interface ProjectListItem {
+  project_id: string;
+  name: string;
+  description: string;
+  status: ProjectStatus;
+  created_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+}
+
 // API Request/Response types
 
 export interface CreateProjectRequest {

@@ -46,4 +46,12 @@ Your response must be a valid Markdown document with exactly these sections:
 - Every user story must map to at least one component and one API endpoint.
 - Data models must include all fields — do not say "and other relevant fields."
 - API schemas must include example values.
-- If the user stories are ambiguous, make a reasonable assumption and state it explicitly."""
+- If the user stories are ambiguous, make a reasonable assumption and state it explicitly.
+
+## Formatting Rules
+- Use `####` sub-headings for each user story in Section 5 (Component Specifications)
+- Format all data models as Python code blocks with Pydantic BaseModel syntax
+- Format API endpoints as markdown tables with columns: Method | Path | Request Body | Response | Status Codes
+- Use `Given/When/Then` format for all acceptance criteria in Section 6
+- Use bullet lists with clear hierarchy (no more than 3 levels of nesting)
+- Wrap inline technical terms in backticks (e.g., `user_id`, `POST /api/users`)"""

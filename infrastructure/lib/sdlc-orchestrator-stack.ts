@@ -29,6 +29,7 @@ export class SdlcOrchestratorStack extends cdk.Stack {
       stateMachineArn: pipeline.stateMachine.stateMachineArn,
       userPoolId: auth.userPool.userPoolId,
       userPoolClientId: auth.userPoolClient.userPoolClientId,
+      plannerFunctionName: pipeline.plannerFunction.functionName,
     });
 
     // Frontend: S3 + CloudFront static site

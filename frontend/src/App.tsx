@@ -7,6 +7,10 @@ import { ArtifactViewer } from "@/components/ArtifactViewer"
 import { LoginPage } from "@/components/LoginPage"
 import { AuthProvider, useAuth } from "@/auth/AuthContext"
 import { usePolling } from "@/hooks/usePolling"
+import { Logo } from "@/components/Logo"
+import ProjectList from "@/components/ProjectList"
+
+type AppView = 'create' | 'list' | 'pipeline'
 
 function AppContent({ projectId }: { projectId: string }) {
   const { project } = usePolling(projectId)
@@ -39,6 +43,7 @@ function AppContent({ projectId }: { projectId: string }) {
 }
 
 function App() {
+  const [view, setView] = useState<AppView>('create')
   const [projectId, setProjectId] = useState<string | null>(null)
   const { user, isAuthenticated, isLoading, signOut } = useAuth()
 
@@ -56,27 +61,29 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card px-6 py-4">
+      <header className="border-b bg-card px-6" style={{ height: '72px', display: 'flex', alignItems: 'center' }}>
         <div className="container mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Archon SDLC Orchestrator</h1>
-            <p className="text-sm text-muted-foreground">
-              AI-Powered Multi-Agent Development Pipeline
-            </p>
+          <div className="flex items-center gap-3">
+            <Logo size={32} />
+            <span className="text-xl font-semibold text-foreground">Archon SDLC</span>
           </div>
-          <div className="flex items-center gap-4">
-            {projectId && (
-              <button
-                onClick={() => setProjectId(null)}
-                className="text-sm text-muted-foreground hover:text-foreground underline"
-              >
-                New Project
-              </button>
-            )}
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => setView('create')}
+              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              New Project
+            </button>
+            <button
+              onClick={() => setView('list')}
+              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              Projects
+            </button>
             <span className="text-sm text-muted-foreground">{user}</span>
             <button
               onClick={signOut}
-              className="text-sm text-muted-foreground hover:text-foreground underline"
+              className="text-sm text-muted-foreground hover:text-primary transition-colors"
             >
               Sign Out
             </button>
@@ -84,11 +91,29 @@ function App() {
         </div>
       </header>
       <main className="container mx-auto p-6">
-        {!projectId ? (
+        {view === 'create' && (
           <div className="max-w-2xl mx-auto">
-            <ProjectCreator onPipelineStarted={setProjectId} />
+            <ProjectCreator
+              onPipelineStarted={(id) => {
+                setProjectId(id)
+                setView('pipeline')
+              }}
+            />
           </div>
-        ) : (
+        )}
+        {view === 'list' && (
+          <ProjectList
+            onSelectProject={(id) => {
+              if (id === 'new') {
+                setView('create')
+              } else {
+                setProjectId(id)
+                setView('pipeline')
+              }
+            }}
+          />
+        )}
+        {view === 'pipeline' && projectId && (
           <AppContent projectId={projectId} />
         )}
       </main>

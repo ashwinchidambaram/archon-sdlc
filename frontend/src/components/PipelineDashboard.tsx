@@ -4,12 +4,10 @@ import { Button } from "@/components/ui/button";
 import { usePolling } from "@/hooks/usePolling";
 import type { StageResult } from "@/types";
 import { StageName, StageStatus, ReviewVerdict, ProjectStatus } from "@/types";
+import { calculateCost } from "@/lib/cost";
 import {
-  CheckCircle2,
-  XCircle,
   Clock,
   Loader2,
-  ArrowRight,
   RotateCcw,
   FileText,
   Code,
@@ -18,6 +16,34 @@ import {
   Search,
   BookOpen,
 } from "lucide-react";
+
+// ---------------------------------------------------------------------------
+// Brand colors
+// ---------------------------------------------------------------------------
+
+const BRAND = {
+  warmSand: "#E8DCC4",
+  offWhite: "#F9F7F4",
+  slateGray: "#5A5A5A",
+  inkBlack: "#2C2C2C",
+  terracotta: "#D4745E",
+  sage: "#91A888",
+  error: "#C17B6F",
+  warmGray: "#9B9B9B",
+};
+
+// ---------------------------------------------------------------------------
+// Pipeline order
+// ---------------------------------------------------------------------------
+
+const PIPELINE_ORDER: StageName[] = [
+  StageName.REQUIREMENTS,
+  StageName.CODEGEN,
+  StageName.TESTGEN,
+  StageName.SECURITY,
+  StageName.CODEREVIEW,
+  StageName.DOCUMENTATION,
+];
 
 // ---------------------------------------------------------------------------
 // Types
@@ -104,6 +130,15 @@ function truncate(text: string, maxLen: number): string {
   return text.length <= maxLen ? text : `${text.slice(0, maxLen)}…`;
 }
 
+function formatTimestamp(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  } catch {
+    return iso;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
@@ -115,15 +150,38 @@ interface StatusBadgeProps {
 function StatusBadge({ status }: StatusBadgeProps) {
   switch (status) {
     case StageStatus.PENDING:
-      return <Badge variant="outline">Pending</Badge>;
+      return (
+        <Badge
+          style={{ backgroundColor: BRAND.warmSand, color: BRAND.slateGray, border: "none" }}
+        >
+          Pending
+        </Badge>
+      );
     case StageStatus.RUNNING:
       return (
-        <Badge className="animate-pulse bg-blue-500 text-white">Running</Badge>
+        <Badge
+          className="animate-pulse"
+          style={{ backgroundColor: BRAND.terracotta, color: BRAND.offWhite, border: "none" }}
+        >
+          Running
+        </Badge>
       );
     case StageStatus.COMPLETED:
-      return <Badge className="bg-green-500 text-white">Completed</Badge>;
+      return (
+        <Badge
+          style={{ backgroundColor: BRAND.sage, color: BRAND.offWhite, border: "none" }}
+        >
+          Completed
+        </Badge>
+      );
     case StageStatus.FAILED:
-      return <Badge variant="destructive">Failed</Badge>;
+      return (
+        <Badge
+          style={{ backgroundColor: BRAND.error, color: BRAND.offWhite, border: "none" }}
+        >
+          Failed
+        </Badge>
+      );
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
@@ -136,44 +194,45 @@ interface StageIconProps {
 }
 
 function StageIcon({ name, status, className = "h-5 w-5" }: StageIconProps) {
-  const iconClass = `${className} ${
+  const color =
     status === StageStatus.COMPLETED
-      ? "text-green-500"
+      ? BRAND.sage
       : status === StageStatus.FAILED
-      ? "text-red-500"
+      ? BRAND.error
       : status === StageStatus.RUNNING
-      ? "text-blue-500"
-      : "text-muted-foreground"
-  }`;
+      ? BRAND.terracotta
+      : BRAND.warmGray;
+
+  const iconStyle = { color };
 
   switch (name) {
     case StageName.REQUIREMENTS:
-      return <FileText className={iconClass} />;
+      return <FileText className={className} style={iconStyle} />;
     case StageName.CODEGEN:
-      return <Code className={iconClass} />;
+      return <Code className={className} style={iconStyle} />;
     case StageName.TESTGEN:
-      return <TestTube className={iconClass} />;
+      return <TestTube className={className} style={iconStyle} />;
     case StageName.SECURITY:
-      return <Shield className={iconClass} />;
+      return <Shield className={className} style={iconStyle} />;
     case StageName.CODEREVIEW:
-      return <Search className={iconClass} />;
+      return <Search className={className} style={iconStyle} />;
     case StageName.DOCUMENTATION:
-      return <BookOpen className={iconClass} />;
+      return <BookOpen className={className} style={iconStyle} />;
     default:
-      return <Clock className={iconClass} />;
+      return <Clock className={className} style={iconStyle} />;
   }
 }
 
-function statusIcon(status: StageStatus) {
+function statusBorderColor(status: StageStatus): string {
   switch (status) {
     case StageStatus.COMPLETED:
-      return <CheckCircle2 className="h-3 w-3 text-green-500" />;
+      return BRAND.sage;
     case StageStatus.FAILED:
-      return <XCircle className="h-3 w-3 text-red-500" />;
+      return BRAND.error;
     case StageStatus.RUNNING:
-      return <Loader2 className="h-3 w-3 text-blue-500 animate-spin" />;
+      return BRAND.terracotta;
     default:
-      return <Clock className="h-3 w-3 text-muted-foreground" />;
+      return BRAND.warmGray;
   }
 }
 
@@ -194,44 +253,46 @@ interface StageCardProps {
 function StageCard({ stageName, resolved }: StageCardProps) {
   const result = resolved?.latestResult ?? null;
   const status = result?.status ?? StageStatus.PENDING;
-  const iteration = resolved?.maxIteration ?? 0;
+
+  const borderColor = statusBorderColor(status);
 
   return (
-    <Card className="w-44 shrink-0">
-      <CardHeader className="p-3 pb-1">
-        <div className="flex items-center gap-2">
-          <StageIcon name={stageName} status={status} />
-          <CardTitle className="text-sm font-medium leading-tight">
-            {STAGE_LABELS[stageName]}
-          </CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent className="p-3 pt-1 space-y-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {statusIcon(status)}
+    <Card
+      className="w-full"
+      style={{ borderLeft: `4px solid ${borderColor}` }}
+    >
+      <CardContent className="p-4 space-y-2">
+        {/* Stage name + status on one line */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <StageIcon name={stageName} status={status} className="h-4 w-4 shrink-0" />
+            <span className="font-medium text-sm">{STAGE_LABELS[stageName]}</span>
+          </div>
           <StatusBadge status={status} />
-          {iteration > 0 && (
-            <Badge
-              variant="outline"
-              className="text-amber-600 border-amber-400 bg-amber-50 text-xs"
-            >
-              Iter {iteration}
-            </Badge>
-          )}
         </div>
 
-        {result?.summary && status === StageStatus.COMPLETED && (
+        {/* Summary */}
+        {result?.summary && (
           <p className="text-xs text-muted-foreground leading-snug">
-            {truncate(result.summary, 100)}
+            {truncate(result.summary, 140)}
           </p>
         )}
 
-        {result?.metadata?.duration_seconds != null &&
-          status === StageStatus.COMPLETED && (
-            <p className="text-xs text-muted-foreground">
-              {formatDuration(result.metadata.duration_seconds)}
-            </p>
+        {/* Timestamps + duration */}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+          {result?.started_at && (
+            <span>Started {formatTimestamp(result.started_at)}</span>
           )}
+          {result?.completed_at && (
+            <span>Completed {formatTimestamp(result.completed_at)}</span>
+          )}
+          {result?.metadata?.duration_seconds != null &&
+            status === StageStatus.COMPLETED && (
+              <span className="font-medium">
+                {formatDuration(result.metadata.duration_seconds)}
+              </span>
+            )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -244,39 +305,128 @@ function StageCard({ stageName, resolved }: StageCardProps) {
 function ProjectStatusBadge({ status }: { status: ProjectStatus }) {
   switch (status) {
     case ProjectStatus.CREATED:
-      return <Badge variant="outline">Created</Badge>;
+      return (
+        <Badge
+          style={{ backgroundColor: BRAND.warmSand, color: BRAND.slateGray, border: "none" }}
+        >
+          Created
+        </Badge>
+      );
     case ProjectStatus.RUNNING:
       return (
-        <Badge className="animate-pulse bg-blue-500 text-white">Running</Badge>
+        <Badge
+          className="animate-pulse"
+          style={{ backgroundColor: BRAND.terracotta, color: BRAND.offWhite, border: "none" }}
+        >
+          Running
+        </Badge>
       );
     case ProjectStatus.COMPLETED:
-      return <Badge className="bg-green-500 text-white">Completed</Badge>;
+      return (
+        <Badge
+          style={{ backgroundColor: BRAND.sage, color: BRAND.offWhite, border: "none" }}
+        >
+          Completed
+        </Badge>
+      );
     case ProjectStatus.FAILED:
-      return <Badge variant="destructive">Failed</Badge>;
+      return (
+        <Badge
+          style={{ backgroundColor: BRAND.error, color: BRAND.offWhite, border: "none" }}
+        >
+          Failed
+        </Badge>
+      );
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
 }
 
 // ---------------------------------------------------------------------------
-// Feedback loop indicator
+// Cost panel
 // ---------------------------------------------------------------------------
 
-function FeedbackLoopIndicator() {
+function CostPanel({
+  stages,
+  stageMap,
+}: {
+  stages: StageResult[];
+  stageMap: Map<StageName, ResolvedStage>;
+}) {
+  // Aggregate costs from latest iteration of each stage
+  let totalCost = 0;
+  let totalInput = 0;
+  let totalOutput = 0;
+
+  const stageCosts: Array<{ name: StageName; cost: number; input: number; output: number }> = [];
+
+  for (const stageName of PIPELINE_ORDER) {
+    const resolved = stageMap.get(stageName);
+    const meta = resolved?.latestResult?.metadata;
+    if (meta) {
+      const cost = calculateCost(meta);
+      totalCost += cost;
+      totalInput += meta.input_tokens;
+      totalOutput += meta.output_tokens;
+      stageCosts.push({ name: stageName, cost, input: meta.input_tokens, output: meta.output_tokens });
+    }
+  }
+
+  // Fallback: if stageMap is empty but raw stages have metadata, sum from stages
+  if (stageCosts.length === 0 && stages.length > 0) {
+    for (const s of stages) {
+      if (s.metadata) {
+        const cost = calculateCost(s.metadata);
+        totalCost += cost;
+        totalInput += s.metadata.input_tokens;
+        totalOutput += s.metadata.output_tokens;
+      }
+    }
+  }
+
   return (
-    <div className="flex items-center gap-1 text-amber-600 text-xs font-medium px-2 py-1 bg-amber-50 border border-amber-200 rounded-md">
-      <RotateCcw className="h-3 w-3" />
-      <span>Loop back</span>
-    </div>
+    <Card className="sticky top-8">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold">Pipeline Cost</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Total */}
+        <div>
+          <div className="text-2xl font-bold" style={{ color: BRAND.inkBlack }}>
+            ${totalCost.toFixed(4)}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+            <div>{totalInput.toLocaleString()} input tokens</div>
+            <div>{totalOutput.toLocaleString()} output tokens</div>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <hr className="border-border" />
+
+        {/* Per-stage breakdown */}
+        {stageCosts.length > 0 ? (
+          <div className="space-y-3">
+            {stageCosts.map(({ name, cost, input, output }) => (
+              <div key={name}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">{STAGE_LABELS[name]}</span>
+                  <span className="text-xs font-semibold">${cost.toFixed(4)}</span>
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {input.toLocaleString()} in / {output.toLocaleString()} out
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            No cost data yet. Costs will appear as stages complete.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Arrow connector
-// ---------------------------------------------------------------------------
-
-function Connector() {
-  return <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-6" />;
 }
 
 // ---------------------------------------------------------------------------
@@ -319,104 +469,90 @@ export function PipelineDashboard({
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold">{project.name}</h2>
-          <div className="flex items-center gap-2">
-            <ProjectStatusBadge status={project.status} />
-            {project.current_iteration != null &&
-              project.current_iteration > 0 && (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Left: Pipeline Timeline */}
+      <div className="lg:col-span-2 space-y-4">
+        {/* Project header */}
+        <div className="flex items-start justify-between gap-4 mb-2">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold">{project.name}</h2>
+            <div className="flex items-center gap-2">
+              <ProjectStatusBadge status={project.status} />
+              {project.current_iteration != null && project.current_iteration > 0 && (
                 <span className="text-xs text-muted-foreground">
                   Iteration {project.current_iteration}
                 </span>
               )}
+            </div>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onViewArtifacts}
+            disabled={!hasAnyCompleted}
+          >
+            View Artifacts
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onViewArtifacts}
-          disabled={!hasAnyCompleted}
-        >
-          View Artifacts
-        </Button>
+
+        {/* Vertical stage list with iteration banners */}
+        {PIPELINE_ORDER.map((stageName) => {
+          const resolved = stageMap.get(stageName);
+
+          // Show feedback loop banner before Code Gen when review requested changes
+          const showIterBanner =
+            stageName === StageName.CODEGEN &&
+            showFeedbackLoop &&
+            resolved != null &&
+            resolved.maxIteration > 0;
+
+          // Show iteration banner before any stage that has looped
+          const showGenericIterBanner =
+            stageName !== StageName.CODEGEN &&
+            resolved != null &&
+            resolved.maxIteration > 0;
+
+          return (
+            <div key={stageName} className="space-y-2">
+              {showIterBanner && (
+                <div
+                  className="px-4 py-3 rounded-lg flex items-center gap-2"
+                  style={{
+                    backgroundColor: BRAND.warmSand,
+                    fontSize: "14px",
+                    color: BRAND.inkBlack,
+                    fontWeight: 500,
+                  }}
+                >
+                  <RotateCcw className="h-4 w-4 shrink-0" style={{ color: BRAND.terracotta }} />
+                  <span>
+                    Iteration {resolved.maxIteration} — Code Review requested changes
+                  </span>
+                </div>
+              )}
+              {showGenericIterBanner && (
+                <div
+                  className="px-4 py-3 rounded-lg"
+                  style={{
+                    backgroundColor: BRAND.warmSand,
+                    fontSize: "14px",
+                    color: BRAND.inkBlack,
+                    fontWeight: 500,
+                  }}
+                >
+                  Iteration {resolved.maxIteration} — Code Review requested changes
+                </div>
+              )}
+              <StageCard stageName={stageName} resolved={resolved} />
+            </div>
+          );
+        })}
       </div>
 
-      {/* Pipeline flow
-       *
-       *  [Requirements] → [Code Gen] → ┌─[Test Gen]──┐ → [Code Review] → [Documentation]
-       *                                └─[Security]──┘
-       *
-       *  Implemented as a single flex row where TestGen and Security are
-       *  stacked vertically inside a column container.
-       */}
-      <div className="overflow-x-auto pb-2">
-        <div className="flex items-start gap-2 min-w-max">
-          {/* Requirements */}
-          <StageCard
-            stageName={StageName.REQUIREMENTS}
-            resolved={stageMap.get(StageName.REQUIREMENTS)}
-          />
-
-          <Connector />
-
-          {/* Code Gen — feedback loop loops back here */}
-          <div className="relative flex flex-col items-center gap-1">
-            <StageCard
-              stageName={StageName.CODEGEN}
-              resolved={stageMap.get(StageName.CODEGEN)}
-            />
-            {showFeedbackLoop && (
-              <div className="absolute -bottom-7">
-                <FeedbackLoopIndicator />
-              </div>
-            )}
-          </div>
-
-          <Connector />
-
-          {/* Parallel branch: TestGen + Security stacked */}
-          <div className="flex flex-col gap-2">
-            <StageCard
-              stageName={StageName.TESTGEN}
-              resolved={stageMap.get(StageName.TESTGEN)}
-            />
-            <StageCard
-              stageName={StageName.SECURITY}
-              resolved={stageMap.get(StageName.SECURITY)}
-            />
-          </div>
-
-          <Connector />
-
-          {/* Code Review */}
-          <StageCard
-            stageName={StageName.CODEREVIEW}
-            resolved={stageMap.get(StageName.CODEREVIEW)}
-          />
-
-          <Connector />
-
-          {/* Documentation */}
-          <StageCard
-            stageName={StageName.DOCUMENTATION}
-            resolved={stageMap.get(StageName.DOCUMENTATION)}
-          />
-        </div>
+      {/* Right: Cost Panel */}
+      <div className="lg:col-span-1">
+        <CostPanel stages={stages} stageMap={stageMap} />
       </div>
-
-      {/* Feedback loop explanation */}
-      {showFeedbackLoop && (
-        <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-          <RotateCcw className="h-4 w-4 shrink-0" />
-          <span>
-            Code Review requested changes — pipeline is looping back to Code Gen
-            for revision.
-          </span>
-        </div>
-      )}
     </div>
   );
 }

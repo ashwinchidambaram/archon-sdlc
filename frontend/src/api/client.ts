@@ -4,6 +4,7 @@ import type {
   StartPipelineResponse,
   Project,
   StageResult,
+  ProjectListItem,
 } from '@/types';
 import { getIdToken } from '@/auth/cognito';
 
@@ -90,4 +91,26 @@ export const getArtifact = async (s3Key: string): Promise<string> => {
   });
   await handleResponse(response);
   return response.text();
+};
+
+export const listProjects = async (): Promise<{ projects: ProjectListItem[] }> => {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${getBaseUrl()}/projects`, {
+    headers: { ...authHeaders },
+  });
+  await handleResponse(response);
+  return response.json();
+};
+
+export const planProject = async (
+  description: string
+): Promise<{ user_stories: string[]; summary: string }> => {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${getBaseUrl()}/plan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    body: JSON.stringify({ description }),
+  });
+  await handleResponse(response);
+  return response.json();
 };

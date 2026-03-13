@@ -15,6 +15,7 @@ export interface ApiConstructProps {
   stateMachineArn: string;
   userPoolId: string;
   userPoolClientId: string;
+  plannerFunctionName: string;
 }
 
 export class ApiConstruct extends Construct {
@@ -71,6 +72,20 @@ export class ApiConstruct extends Construct {
       handler: 'get_artifact.lambda_handler',
     });
 
+    const planFn = new lambda.Function(this, 'PlanFn', {
+      ...commonLambdaProps,
+      handler: 'plan.lambda_handler',
+      environment: {
+        ...commonLambdaProps.environment,
+        PLANNER_FUNCTION_NAME: props.plannerFunctionName,
+      },
+    });
+
+    const listProjectsFn = new lambda.Function(this, 'ListProjectsFn', {
+      ...commonLambdaProps,
+      handler: 'list_projects.lambda_handler',
+    });
+
     // IAM permissions
     table.grantReadWriteData(createProjectFn);
     table.grantReadWriteData(startPipelineFn);
@@ -90,6 +105,17 @@ export class ApiConstruct extends Construct {
 
     startPipelineFn.addToRolePolicy(sfnPolicy);
     getProjectFn.addToRolePolicy(sfnPolicy);
+
+    // Plan function needs to invoke the planner Lambda
+    planFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['lambda:InvokeFunction'],
+        resources: [`arn:aws:lambda:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:function:${props.plannerFunctionName}`],
+      })
+    );
+
+    // List projects just needs table read
+    table.grantReadData(listProjectsFn);
 
     const jwtAuthorizer = new HttpJwtAuthorizer(
       'CognitoAuthorizer',
@@ -160,6 +186,26 @@ export class ApiConstruct extends Construct {
       integration: new apigatewayv2Integrations.HttpLambdaIntegration(
         'GetArtifactIntegration',
         getArtifactFn,
+      ),
+      authorizer: jwtAuthorizer,
+    });
+
+    this.api.addRoutes({
+      path: '/plan',
+      methods: [apigatewayv2.HttpMethod.POST],
+      integration: new apigatewayv2Integrations.HttpLambdaIntegration(
+        'PlanIntegration',
+        planFn,
+      ),
+      authorizer: jwtAuthorizer,
+    });
+
+    this.api.addRoutes({
+      path: '/projects',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: new apigatewayv2Integrations.HttpLambdaIntegration(
+        'ListProjectsIntegration',
+        listProjectsFn,
       ),
       authorizer: jwtAuthorizer,
     });

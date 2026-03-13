@@ -16,6 +16,7 @@ export interface PipelineConstructProps {
 export class PipelineConstruct extends Construct {
   public readonly stateMachine: sfn.StateMachine;
   public readonly agentFunctions: Record<string, lambda.Function>;
+  public readonly plannerFunction: lambda.Function;
 
   constructor(scope: Construct, id: string, props: PipelineConstructProps) {
     super(scope, id);
@@ -83,6 +84,31 @@ export class PipelineConstruct extends Construct {
 
       this.agentFunctions[agentName] = fn;
     }
+
+    // Planner agent — standalone Lambda (not part of Step Functions pipeline)
+    this.plannerFunction = new lambda.Function(this, 'planner_agent-fn', {
+      ...commonLambdaProps,
+      functionName: 'sdlc-planner-agent',
+      handler: 'handler.lambda_handler',
+      code: lambda.Code.fromAsset(
+        path.join(__dirname, '../../../backend/agents/planner_agent/package')
+      ),
+      environment: {
+        BEDROCK_MODEL_ID: 'us.amazon.nova-pro-v1:0',
+        BEDROCK_REGION: cdk.Aws.REGION,
+      },
+    } as lambda.FunctionProps);
+
+    // Grant Bedrock access to planner
+    this.plannerFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: [
+          'arn:aws:bedrock:*::foundation-model/*',
+          `arn:aws:bedrock:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:inference-profile/us.*`,
+        ],
+      })
+    );
 
     // ─── Step Functions State Machine ───────────────────────────────
 

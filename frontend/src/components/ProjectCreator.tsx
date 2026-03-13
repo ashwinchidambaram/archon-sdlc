@@ -6,9 +6,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { createProject, startPipeline } from "@/api/client"
+import { createProject, startPipeline, planProject } from "@/api/client"
 import type { CreateProjectRequest } from "@/types"
-import { Plus, Trash2, Rocket, Upload, ClipboardPaste } from "lucide-react"
+import { Plus, Trash2, Rocket, Upload, ClipboardPaste, Sparkles, Loader2 } from "lucide-react"
 
 interface ProjectCreatorProps {
   onPipelineStarted: (projectId: string) => void;
@@ -24,6 +24,8 @@ export function ProjectCreator({ onPipelineStarted }: ProjectCreatorProps) {
   const [importMode, setImportMode] = useState<"manual" | "paste">("manual")
   const [pasteContent, setPasteContent] = useState("")
   const [importError, setImportError] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -76,6 +78,24 @@ export function ProjectCreator({ onPipelineStarted }: ProjectCreatorProps) {
     reader.readAsText(file)
     // Reset input so same file can be re-imported
     e.target.value = ""
+  }
+
+  const handleGenerateStories = async () => {
+    if (!description.trim()) return
+    setGenerating(true)
+    setGenerateError(null)
+    try {
+      const result = await planProject(description.trim())
+      if (result.user_stories && result.user_stories.length > 0) {
+        setUserStories(result.user_stories)
+      } else {
+        setGenerateError("No stories were generated. Try providing more detail in the description.")
+      }
+    } catch (err) {
+      setGenerateError(err instanceof Error ? err.message : "Failed to generate stories")
+    } finally {
+      setGenerating(false)
+    }
   }
 
   const handlePasteApply = () => {
@@ -185,7 +205,7 @@ export function ProjectCreator({ onPipelineStarted }: ProjectCreatorProps) {
         <div className="space-y-3">
           <Label>User Stories</Label>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               type="button"
               variant="outline"
@@ -209,7 +229,33 @@ export function ProjectCreator({ onPipelineStarted }: ProjectCreatorProps) {
               <ClipboardPaste className="h-4 w-4 mr-2" />
               Paste JSON
             </Button>
+            {description.trim() && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateStories}
+                disabled={loading || generating}
+                style={{
+                  borderColor: '#D4745E',
+                  color: '#D4745E',
+                }}
+              >
+                {generating ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                {generating ? "Generating..." : "Generate Stories"}
+              </Button>
+            )}
           </div>
+
+          {generateError && (
+            <Alert variant="destructive">
+              <AlertDescription>{generateError}</AlertDescription>
+            </Alert>
+          )}
 
           {importError && (
             <Alert variant="destructive">

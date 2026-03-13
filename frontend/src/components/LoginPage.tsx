@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/auth/AuthContext';
+import { Logo } from '@/components/Logo';
 import type { CognitoUser } from 'amazon-cognito-identity-js';
 
 export function LoginPage() {
@@ -65,8 +66,9 @@ export function LoginPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Archon SDLC</CardTitle>
+          <CardHeader className="items-center text-center">
+            <Logo size={64} />
+            <CardTitle>Archon SDLC Orchestrator</CardTitle>
             <CardDescription>Set a new password to continue</CardDescription>
           </CardHeader>
           <CardContent>
@@ -118,8 +120,9 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Archon SDLC</CardTitle>
+        <CardHeader className="items-center text-center">
+          <Logo size={64} />
+          <CardTitle>Archon SDLC Orchestrator</CardTitle>
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>

@@ -10,7 +10,7 @@ import { getArtifact } from "@/api/client"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism"
+import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism"
 import { Download, Loader2 } from "lucide-react"
 import JSZip from "jszip"
 
@@ -155,7 +155,7 @@ function getLanguageFromPath(filePath: string): string {
 
 function LoadingState() {
   return (
-    <div className="flex items-center justify-center h-40 text-gray-400 text-sm">
+    <div className="flex items-center justify-center h-40 text-sm" style={{ color: '#9B9B9B' }}>
       Loading artifact…
     </div>
   )
@@ -163,7 +163,7 @@ function LoadingState() {
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="flex items-center justify-center h-40 text-red-500 text-sm px-4 text-center">
+    <div className="flex items-center justify-center h-40 text-sm px-4 text-center" style={{ color: '#C17B6F' }}>
       {message}
     </div>
   )
@@ -171,7 +171,7 @@ function ErrorState({ message }: { message: string }) {
 
 function EmptyState({ label }: { label: string }) {
   return (
-    <div className="flex items-center justify-center h-40 text-gray-400 text-sm">
+    <div className="flex items-center justify-center h-40 text-sm" style={{ color: '#9B9B9B' }}>
       No {label} results yet.
     </div>
   )
@@ -182,8 +182,99 @@ function EmptyState({ label }: { label: string }) {
 function MarkdownViewer({ content }: { content: string }) {
   return (
     <ScrollArea className="h-[600px] w-full">
-      <div className="p-4 prose prose-sm max-w-none dark:prose-invert">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      <div className="p-6 rounded-xl" style={{ backgroundColor: '#F3EFE8' }}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            h1: ({ children }) => (
+              <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#2C2C2C', marginBottom: '16px', marginTop: '24px' }}>
+                {children}
+              </h1>
+            ),
+            h2: ({ children }) => (
+              <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#2C2C2C', marginBottom: '12px', marginTop: '20px' }}>
+                {children}
+              </h2>
+            ),
+            h3: ({ children }) => (
+              <h3 style={{ fontSize: '17px', fontWeight: 600, color: '#D4745E', marginBottom: '8px', marginTop: '16px' }}>
+                {children}
+              </h3>
+            ),
+            h4: ({ children }) => (
+              <h4 style={{ fontSize: '15px', fontWeight: 600, color: '#5A5A5A', marginBottom: '6px', marginTop: '12px' }}>
+                {children}
+              </h4>
+            ),
+            p: ({ children }) => (
+              <p style={{ fontSize: '14px', color: '#5A5A5A', lineHeight: '1.7', marginBottom: '12px' }}>
+                {children}
+              </p>
+            ),
+            ul: ({ children }) => (
+              <ul style={{ listStyleType: 'disc', paddingLeft: '24px', marginBottom: '12px', color: '#5A5A5A', fontSize: '14px', lineHeight: '1.7' }}>
+                {children}
+              </ul>
+            ),
+            ol: ({ children }) => (
+              <ol style={{ listStyleType: 'decimal', paddingLeft: '24px', marginBottom: '12px', color: '#5A5A5A', fontSize: '14px', lineHeight: '1.7' }}>
+                {children}
+              </ol>
+            ),
+            li: ({ children }) => (
+              <li style={{ marginBottom: '4px' }}>{children}</li>
+            ),
+            code: ({ className, children, ...props }: any) => {
+              const match = /language-(\w+)/.exec(className || '');
+              if (match) {
+                return (
+                  <SyntaxHighlighter
+                    language={match[1]}
+                    style={oneLight}
+                    customStyle={{ margin: '12px 0', borderRadius: '8px', fontSize: '13px', background: '#F9F7F4' }}
+                    showLineNumbers
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                );
+              }
+              return (
+                <code
+                  style={{
+                    backgroundColor: '#E8DCC4',
+                    color: '#2C2C2C',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    fontFamily: 'monospace',
+                  }}
+                  {...props}
+                >
+                  {children}
+                </code>
+              );
+            },
+            table: ({ children }) => (
+              <div style={{ overflowX: 'auto', marginBottom: '12px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  {children}
+                </table>
+              </div>
+            ),
+            th: ({ children }) => (
+              <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E8DCC4', fontWeight: 600, color: '#2C2C2C' }}>
+                {children}
+              </th>
+            ),
+            td: ({ children }) => (
+              <td style={{ padding: '8px 12px', borderBottom: '1px solid rgba(44,44,44,0.1)', color: '#5A5A5A' }}>
+                {children}
+              </td>
+            ),
+          }}
+        >
+          {content}
+        </ReactMarkdown>
       </div>
     </ScrollArea>
   )
@@ -225,8 +316,8 @@ function CodeViewer({ manifest }: { manifest: CodeManifest }) {
         {activeFile ? (
           <SyntaxHighlighter
             language={getLanguageFromPath(activeFile.path)}
-            style={oneDark}
-            customStyle={{ margin: 0, borderRadius: "0.375rem", fontSize: "0.8rem" }}
+            style={oneLight}
+            customStyle={{ margin: 0, borderRadius: "0.375rem", fontSize: "0.8rem", background: "#F9F7F4" }}
             showLineNumbers
           >
             {activeFile.content}
@@ -262,11 +353,11 @@ function SecurityViewer({ report }: { report: SecurityReport }) {
         {/* Summary card */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Risk Summary</CardTitle>
+            <CardTitle className="text-sm font-semibold" style={{ color: '#2C2C2C' }}>Risk Summary</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-2xl font-bold text-gray-800">{summary.overall_risk}</span>
+              <span className="text-2xl font-bold" style={{ color: '#2C2C2C' }}>{summary.overall_risk}</span>
               <div className="flex gap-2 flex-wrap">
                 {summary.critical > 0 && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-red-600 text-white font-semibold">
@@ -284,49 +375,47 @@ function SecurityViewer({ report }: { report: SecurityReport }) {
                   </span>
                 )}
                 {summary.low > 0 && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 font-semibold">
+                  <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: '#E8DCC4', color: '#5A5A5A' }}>
                     {summary.low} Low
                   </span>
                 )}
                 {summary.total_findings === 0 && (
-                  <span className="text-xs text-green-600 font-medium">No findings</span>
+                  <span className="text-xs font-medium" style={{ color: '#91A888' }}>No findings</span>
                 )}
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-1">{summary.total_findings} total finding{summary.total_findings !== 1 ? "s" : ""}</p>
+            <p className="text-xs mt-1" style={{ color: '#9B9B9B' }}>{summary.total_findings} total finding{summary.total_findings !== 1 ? "s" : ""}</p>
           </CardContent>
         </Card>
 
         {/* Findings list */}
         {findings.length === 0 ? (
-          <div className="text-center text-gray-400 text-sm py-8">No findings reported.</div>
+          <div className="text-center text-sm py-8" style={{ color: '#9B9B9B' }}>No findings reported.</div>
         ) : (
           <div className="space-y-3">
             {findings.map((finding, idx) => {
               const sevCfg = severityConfig[finding.severity] ?? severityConfig.LOW
               const srcCls = sourceConfig[finding.source] ?? "bg-gray-100 text-gray-600 border-gray-200"
               return (
-                <Card key={idx}>
-                  <CardContent className="pt-4 space-y-2">
-                    <div className="flex items-start gap-2 flex-wrap">
-                      <Badge className={sevCfg.className}>{sevCfg.label}</Badge>
-                      <Badge className={`border ${srcCls}`} variant="outline">
-                        {finding.source === "manual_review" ? "manual review" : finding.source}
-                      </Badge>
-                      <span className="text-xs text-gray-500">{finding.category}</span>
-                    </div>
-                    <p className="text-sm font-semibold text-gray-800">{finding.title}</p>
-                    <p className="text-xs text-gray-600">{finding.description}</p>
+                <details key={idx} className="group" style={{ borderRadius: '8px', border: '1px solid rgba(44,44,44,0.1)', overflow: 'hidden' }}>
+                  <summary className="flex items-center gap-2 cursor-pointer p-3" style={{ backgroundColor: '#F3EFE8' }}>
+                    <Badge className={sevCfg.className}>{sevCfg.label}</Badge>
+                    <Badge className={`border ${srcCls}`} variant="outline">
+                      {finding.source === "manual_review" ? "manual review" : finding.source}
+                    </Badge>
+                    <span style={{ fontSize: '14px', fontWeight: 500, color: '#2C2C2C' }}>{finding.title}</span>
+                  </summary>
+                  <div className="p-3 space-y-2" style={{ borderTop: '1px solid rgba(44,44,44,0.1)' }}>
+                    <p style={{ fontSize: '13px', color: '#5A5A5A' }}>{finding.description}</p>
                     {finding.remediation && (
-                      <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2">
-                        <p className="text-xs text-blue-700">
-                          <span className="font-semibold">Remediation: </span>
-                          {finding.remediation}
+                      <div style={{ backgroundColor: '#E8DCC4', borderRadius: '6px', padding: '8px 12px' }}>
+                        <p style={{ fontSize: '12px', color: '#2C2C2C' }}>
+                          <span style={{ fontWeight: 600 }}>Remediation: </span>{finding.remediation}
                         </p>
                       </div>
                     )}
-                  </CardContent>
-                </Card>
+                  </div>
+                </details>
               )
             })}
           </div>
@@ -338,18 +427,21 @@ function SecurityViewer({ report }: { report: SecurityReport }) {
 
 // ── Code review viewer ─────────────────────────────────────────────────────────
 
-const verdictConfig: Record<string, { label: string; className: string }> = {
+const verdictConfig: Record<string, { label: string; className: string; style: React.CSSProperties }> = {
   APPROVED: {
     label: "Approved",
-    className: "bg-green-50 border-green-200 text-green-800",
+    className: "border",
+    style: { backgroundColor: '#F3EFE8', borderColor: '#E8DCC4', color: '#2C2C2C' },
   },
   APPROVED_WITH_COMMENTS: {
     label: "Approved with Comments",
-    className: "bg-blue-50 border-blue-200 text-blue-800",
+    className: "border",
+    style: { backgroundColor: '#EAF0F6', borderColor: '#C5D8EB', color: '#2C4A6B' },
   },
   CHANGES_REQUESTED: {
     label: "Changes Requested",
-    className: "bg-amber-50 border-amber-200 text-amber-800",
+    className: "border",
+    style: { backgroundColor: '#FAF0EE', borderColor: '#EAC5BC', color: '#D4745E' },
   },
 }
 
@@ -376,7 +468,7 @@ function CodeReviewViewer({ report }: { report: CodeReviewReport }) {
     <ScrollArea className="h-[600px] w-full">
       <div className="p-4 space-y-4">
         {/* Verdict banner */}
-        <div className={`rounded-lg border px-4 py-3 flex items-center justify-between gap-4 ${vCfg.className}`}>
+        <div className={`rounded-lg px-4 py-3 flex items-center justify-between gap-4 ${vCfg.className}`} style={vCfg.style}>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide opacity-70">Verdict</p>
             <p className="font-semibold">{vCfg.label}</p>
@@ -389,27 +481,27 @@ function CodeReviewViewer({ report }: { report: CodeReviewReport }) {
 
         {/* Summary */}
         {report.summary && (
-          <p className="text-sm text-gray-600 leading-relaxed">{report.summary}</p>
+          <p className="text-sm leading-relaxed" style={{ color: '#5A5A5A' }}>{report.summary}</p>
         )}
 
         {/* Dimension scores */}
         {report.dimensions && Object.keys(report.dimensions).length > 0 && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Dimension Scores</CardTitle>
+              <CardTitle className="text-sm font-semibold" style={{ color: '#2C2C2C' }}>Dimension Scores</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {Object.entries(report.dimensions).map(([key, dim]) => (
                 <div key={key} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-700 font-medium">
+                    <span className="font-medium" style={{ color: '#2C2C2C' }}>
                       {DIMENSION_LABELS[key] ?? key.replace(/_/g, " ")}
                     </span>
-                    <span className="text-gray-500">{dim.score}/10</span>
+                    <span style={{ color: '#5A5A5A' }}>{dim.score}/10</span>
                   </div>
-                  <Progress value={dim.score * 10} className="h-2" />
+                  <Progress value={dim.score * 10} className="h-2" style={{ '--progress-foreground': '#D4745E' } as React.CSSProperties} />
                   {dim.feedback && (
-                    <p className="text-xs text-gray-500 pt-0.5">{dim.feedback}</p>
+                    <p className="text-xs pt-0.5" style={{ color: '#9B9B9B' }}>{dim.feedback}</p>
                   )}
                 </div>
               ))}
@@ -420,7 +512,7 @@ function CodeReviewViewer({ report }: { report: CodeReviewReport }) {
         {/* Top issues */}
         {report.top_issues?.length > 0 && (
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-gray-700">Top Issues</h3>
+            <h3 className="text-sm font-semibold" style={{ color: '#2C2C2C' }}>Top Issues</h3>
             {report.top_issues.map((issue, idx) => {
               const priCls = priorityConfig[issue.priority] ?? priorityConfig.P3
               return (
@@ -431,9 +523,9 @@ function CodeReviewViewer({ report }: { report: CodeReviewReport }) {
                         {issue.priority}
                       </Badge>
                     </div>
-                    <p className="text-sm text-gray-800">{issue.description}</p>
+                    <p className="text-sm" style={{ color: '#2C2C2C' }}>{issue.description}</p>
                     {issue.suggestion && (
-                      <p className="text-xs text-gray-500 italic">{issue.suggestion}</p>
+                      <p className="text-xs italic" style={{ color: '#9B9B9B' }}>{issue.suggestion}</p>
                     )}
                   </CardContent>
                 </Card>
@@ -445,11 +537,11 @@ function CodeReviewViewer({ report }: { report: CodeReviewReport }) {
         {/* Commendations */}
         {report.commendations?.length > 0 && (
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-gray-700">Commendations</h3>
+            <h3 className="text-sm font-semibold" style={{ color: '#2C2C2C' }}>Commendations</h3>
             <ul className="space-y-1.5">
               {report.commendations.map((c, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-sm text-gray-600">
-                  <span className="mt-0.5 text-green-500 shrink-0">&#10003;</span>
+                <li key={idx} className="flex items-start gap-2 text-sm" style={{ color: '#5A5A5A' }}>
+                  <span className="mt-0.5 shrink-0" style={{ color: '#91A888' }}>&#10003;</span>
                   {c}
                 </li>
               ))}
@@ -558,7 +650,7 @@ function StageTabContent({ stageKey, stageLabel, stageResults, activeTab }: Stag
 // ─── Artifact content renderer ────────────────────────────────────────────────
 
 function ArtifactContent({ stageKey, rawContent }: { stageKey: string; rawContent: string }) {
-  const isMarkdownStage = stageKey === "requirements" || stageKey === "documentation"
+  const isMarkdownStage = stageKey === "requirements"
   const isCodeStage = stageKey === "codegen" || stageKey === "testgen"
   const isSecurityStage = stageKey === "security"
   const isReviewStage = stageKey === "codereview"
@@ -577,6 +669,49 @@ function ArtifactContent({ stageKey, rawContent }: { stageKey: string; rawConten
     if (!manifest.files || manifest.files.length === 0) {
       return <ErrorState message="Manifest contains no files." />
     }
+
+    // Test summary table for testgen stage
+    if (stageKey === "testgen") {
+      return (
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl" style={{ backgroundColor: '#F3EFE8' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#2C2C2C', marginBottom: '12px' }}>
+              Test Summary
+            </h3>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E8DCC4', fontWeight: 600, color: '#2C2C2C' }}>File</th>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E8DCC4', fontWeight: 600, color: '#2C2C2C' }}>Description</th>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E8DCC4', fontWeight: 600, color: '#2C2C2C' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {manifest.files.map((file) => (
+                    <tr key={file.path}>
+                      <td style={{ padding: '8px 12px', borderBottom: '1px solid rgba(44,44,44,0.1)', color: '#2C2C2C', fontFamily: 'monospace', fontSize: '12px' }}>
+                        {file.path}
+                      </td>
+                      <td style={{ padding: '8px 12px', borderBottom: '1px solid rgba(44,44,44,0.1)', color: '#5A5A5A' }}>
+                        {file.description || '—'}
+                      </td>
+                      <td style={{ padding: '8px 12px', borderBottom: '1px solid rgba(44,44,44,0.1)' }}>
+                        <span style={{ backgroundColor: '#91A888', color: '#F9F7F4', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 500 }}>
+                          Generated
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <CodeViewer manifest={manifest} />
+        </div>
+      )
+    }
+
     return <CodeViewer manifest={manifest} />
   }
 
@@ -598,6 +733,30 @@ function ArtifactContent({ stageKey, rawContent }: { stageKey: string; rawConten
       return <ErrorState message="Failed to parse code review report — invalid JSON." />
     }
     return <CodeReviewViewer report={report} />
+  }
+
+  if (stageKey === "documentation") {
+    // Documentation agent returns code manifest JSON
+    try {
+      let manifest: CodeManifest;
+      const parsed = JSON.parse(rawContent);
+      // Handle array wrapper: [{ files: [...] }]
+      if (Array.isArray(parsed) && parsed[0]?.files) {
+        manifest = parsed[0] as CodeManifest;
+      } else if (parsed.files) {
+        manifest = parsed as CodeManifest;
+      } else {
+        // Not a manifest, try rendering as markdown
+        return <MarkdownViewer content={rawContent} />;
+      }
+      if (manifest.files.length === 0) {
+        return <MarkdownViewer content={rawContent} />;
+      }
+      return <CodeViewer manifest={manifest} />;
+    } catch {
+      // Not JSON, render as markdown
+      return <MarkdownViewer content={rawContent} />;
+    }
   }
 
   // Fallback: render as plain text
@@ -676,18 +835,24 @@ export function ArtifactViewer({ projectId, stages }: ArtifactViewerProps) {
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
       <div className="flex items-center justify-between gap-2 mb-2">
-        <TabsList className="flex flex-wrap h-auto gap-1 justify-start bg-gray-100 p-1 rounded-lg">
+        <TabsList className="flex flex-wrap h-auto gap-1 justify-start p-1 rounded-lg" style={{ backgroundColor: 'transparent' }}>
         {STAGE_TABS.map(({ key, label }) => {
           const hasResults = (grouped[key]?.length ?? 0) > 0
+          const isActive = activeTab === key
           return (
             <TabsTrigger
               key={key}
               value={key}
-              className="relative text-xs px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              className="relative text-xs px-4 py-2 rounded-lg font-medium transition-all"
+              style={{
+                backgroundColor: isActive ? '#D4745E' : '#F3EFE8',
+                color: isActive ? '#F9F7F4' : '#2C2C2C',
+                opacity: hasResults ? 1 : 0.4,
+              }}
             >
               {label}
               {hasResults && (
-                <span className="ml-1.5 inline-flex items-center justify-center w-2 h-2 rounded-full bg-green-500" />
+                <span className="ml-1.5 inline-flex items-center justify-center w-2 h-2 rounded-full" style={{ backgroundColor: '#91A888' }} />
               )}
             </TabsTrigger>
           )
@@ -698,6 +863,7 @@ export function ArtifactViewer({ projectId, stages }: ArtifactViewerProps) {
           size="sm"
           onClick={handleDownloadAll}
           disabled={!hasAnyArtifact || downloading}
+          style={{ borderColor: 'rgba(44, 44, 44, 0.2)', borderRadius: '8px' }}
         >
           {downloading ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
