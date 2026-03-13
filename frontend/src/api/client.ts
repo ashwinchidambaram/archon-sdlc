@@ -102,6 +102,18 @@ export const listProjects = async (): Promise<{ projects: ProjectListItem[] }> =
   return response.json();
 };
 
+export const stopPipeline = async (
+  projectId: string
+): Promise<{ project_id: string; status: string; message: string }> => {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${getBaseUrl()}/projects/${projectId}/stop`, {
+    method: 'POST',
+    headers: { ...authHeaders },
+  });
+  await handleResponse(response);
+  return response.json();
+};
+
 export const planProject = async (
   description: string
 ): Promise<{ user_stories: string[]; summary: string }> => {

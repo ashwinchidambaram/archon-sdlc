@@ -86,6 +86,11 @@ export class ApiConstruct extends Construct {
       handler: 'list_projects.lambda_handler',
     });
 
+    const stopPipelineFn = new lambda.Function(this, 'StopPipelineFn', {
+      ...commonLambdaProps,
+      handler: 'stop_pipeline.lambda_handler',
+    });
+
     // IAM permissions
     table.grantReadWriteData(createProjectFn);
     table.grantReadWriteData(startPipelineFn);
@@ -96,7 +101,7 @@ export class ApiConstruct extends Construct {
     bucket.grantRead(getArtifactFn);
 
     const sfnPolicy = new iam.PolicyStatement({
-      actions: ['states:StartExecution', 'states:DescribeExecution'],
+      actions: ['states:StartExecution', 'states:DescribeExecution', 'states:StopExecution'],
       resources: [
         stateMachineArn,
         `arn:aws:states:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:execution:sdlc-pipeline:*`,
@@ -105,6 +110,8 @@ export class ApiConstruct extends Construct {
 
     startPipelineFn.addToRolePolicy(sfnPolicy);
     getProjectFn.addToRolePolicy(sfnPolicy);
+    stopPipelineFn.addToRolePolicy(sfnPolicy);
+    table.grantReadWriteData(stopPipelineFn);
 
     // Plan function needs to invoke the planner Lambda
     planFn.addToRolePolicy(
@@ -166,6 +173,16 @@ export class ApiConstruct extends Construct {
       integration: new apigatewayv2Integrations.HttpLambdaIntegration(
         'GetProjectIntegration',
         getProjectFn,
+      ),
+      authorizer: jwtAuthorizer,
+    });
+
+    this.api.addRoutes({
+      path: '/projects/{project_id}/stop',
+      methods: [apigatewayv2.HttpMethod.POST],
+      integration: new apigatewayv2Integrations.HttpLambdaIntegration(
+        'StopPipelineIntegration',
+        stopPipelineFn,
       ),
       authorizer: jwtAuthorizer,
     });

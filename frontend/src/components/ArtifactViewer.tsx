@@ -312,17 +312,23 @@ function CodeViewer({ manifest }: { manifest: CodeManifest }) {
         )}
       </div>
 
-      {/* Code content */}
+      {/* File content — render .md as markdown, everything else as code */}
       <ScrollArea className="h-[540px] w-full rounded-md border">
         {activeFile ? (
-          <SyntaxHighlighter
-            language={getLanguageFromPath(activeFile.path)}
-            style={oneLight}
-            customStyle={{ margin: 0, borderRadius: "0.375rem", fontSize: "0.8rem", background: "#F9F7F4" }}
-            showLineNumbers
-          >
-            {activeFile.content}
-          </SyntaxHighlighter>
+          activeFile.path.endsWith(".md") ? (
+            <div className="p-4">
+              <MarkdownViewer content={activeFile.content} />
+            </div>
+          ) : (
+            <SyntaxHighlighter
+              language={getLanguageFromPath(activeFile.path)}
+              style={oneLight}
+              customStyle={{ margin: 0, borderRadius: "0.375rem", fontSize: "0.8rem", background: "#F9F7F4" }}
+              showLineNumbers
+            >
+              {activeFile.content}
+            </SyntaxHighlighter>
+          )
         ) : (
           <div className="p-4 text-gray-400 text-sm">Select a file to view its content.</div>
         )}

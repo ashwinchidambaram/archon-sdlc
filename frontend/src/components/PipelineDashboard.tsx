@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { usePolling } from "@/hooks/usePolling";
 import type { StageResult } from "@/types";
 import { StageName, StageStatus, ReviewVerdict, ProjectStatus } from "@/types";
 import { calculateCost } from "@/lib/cost";
+import { stopPipeline } from "@/api/client";
 import {
   Clock,
   Loader2,
@@ -15,6 +17,7 @@ import {
   Shield,
   Search,
   BookOpen,
+  Square,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -248,51 +251,69 @@ const STAGE_LABELS: Record<StageName, string> = {
 interface StageCardProps {
   stageName: StageName;
   resolved: ResolvedStage | undefined;
+  isStale?: boolean;
 }
 
-function StageCard({ stageName, resolved }: StageCardProps) {
+function StageCard({ stageName, resolved, isStale }: StageCardProps) {
   const result = resolved?.latestResult ?? null;
   const status = result?.status ?? StageStatus.PENDING;
 
-  const borderColor = statusBorderColor(status);
+  const displayStale = isStale && status === StageStatus.COMPLETED;
+  const borderColor = displayStale ? BRAND.warmGray : statusBorderColor(status);
+  const isRunning = status === StageStatus.RUNNING;
 
   return (
     <Card
       className="w-full"
-      style={{ borderLeft: `4px solid ${borderColor}` }}
+      style={{
+        borderLeft: `4px solid ${borderColor}`,
+        ...(isRunning ? { animation: "pulse-border 2s ease-in-out infinite" } : {}),
+        ...(displayStale ? { opacity: 0.65 } : {}),
+      }}
     >
       <CardContent className="p-4 space-y-2">
         {/* Stage name + status on one line */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <StageIcon name={stageName} status={status} className="h-4 w-4 shrink-0" />
+            <StageIcon name={stageName} status={displayStale ? StageStatus.PENDING : status} className="h-4 w-4 shrink-0" />
             <span className="font-medium text-sm">{STAGE_LABELS[stageName]}</span>
           </div>
-          <StatusBadge status={status} />
+          {displayStale ? (
+            <Badge
+              style={{ backgroundColor: BRAND.warmSand, color: BRAND.terracotta, border: `1px solid ${BRAND.terracotta}` }}
+            >
+              <RotateCcw className="h-3 w-3 mr-1" />
+              Awaiting Re-run
+            </Badge>
+          ) : (
+            <StatusBadge status={status} />
+          )}
         </div>
 
         {/* Summary */}
-        {result?.summary && (
+        {result?.summary && !displayStale && (
           <p className="text-xs text-muted-foreground leading-snug">
             {truncate(result.summary, 140)}
           </p>
         )}
 
         {/* Timestamps + duration */}
-        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-          {result?.started_at && (
-            <span>Started {formatTimestamp(result.started_at)}</span>
-          )}
-          {result?.completed_at && (
-            <span>Completed {formatTimestamp(result.completed_at)}</span>
-          )}
-          {result?.metadata?.duration_seconds != null &&
-            status === StageStatus.COMPLETED && (
-              <span className="font-medium">
-                {formatDuration(result.metadata.duration_seconds)}
-              </span>
+        {!displayStale && (
+          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+            {result?.started_at && (
+              <span>Started {formatTimestamp(result.started_at)}</span>
             )}
-        </div>
+            {result?.completed_at && (
+              <span>Completed {formatTimestamp(result.completed_at)}</span>
+            )}
+            {result?.metadata?.duration_seconds != null &&
+              status === StageStatus.COMPLETED && (
+                <span className="font-medium">
+                  {formatDuration(result.metadata.duration_seconds)}
+                </span>
+              )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -440,6 +461,7 @@ export function PipelineDashboard({
   onViewArtifacts,
 }: PipelineDashboardProps) {
   const { project, loading, error } = usePolling(projectId);
+  const [stopping, setStopping] = useState(false);
 
   if (loading) {
     return (
@@ -470,6 +492,10 @@ export function PipelineDashboard({
     (s) => s.latestResult?.status === StageStatus.COMPLETED
   );
 
+  // Detect the pipeline's current iteration from codegen (the stage that drives iteration)
+  const codegenIteration = stageMap.get(StageName.CODEGEN)?.maxIteration ?? 0;
+  const isProjectRunning = project.status === ProjectStatus.RUNNING;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Left: Pipeline Timeline */}
@@ -487,14 +513,41 @@ export function PipelineDashboard({
               )}
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onViewArtifacts}
-            disabled={!hasAnyCompleted}
-          >
-            View Artifacts
-          </Button>
+          <div className="flex items-center gap-2">
+            {isProjectRunning && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={stopping}
+                onClick={async () => {
+                  setStopping(true);
+                  try {
+                    await stopPipeline(projectId);
+                  } catch {
+                    // polling will pick up status change
+                  } finally {
+                    setStopping(false);
+                  }
+                }}
+                style={{ borderColor: BRAND.error, color: BRAND.error }}
+              >
+                {stopping ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                ) : (
+                  <Square className="h-3.5 w-3.5 mr-1" />
+                )}
+                Stop Pipeline
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onViewArtifacts}
+              disabled={!hasAnyCompleted}
+            >
+              View Artifacts
+            </Button>
+          </div>
         </div>
 
         {/* Vertical stage list with iteration banners */}
@@ -507,6 +560,14 @@ export function PipelineDashboard({
             showFeedbackLoop &&
             resolved != null &&
             resolved.maxIteration > 0;
+
+          // Stale: downstream stages that completed in a prior iteration while pipeline is still running
+          const stageIter = resolved?.maxIteration ?? -1;
+          const isStale =
+            isProjectRunning &&
+            codegenIteration > 0 &&
+            stageName !== StageName.REQUIREMENTS &&
+            stageIter < codegenIteration;
 
           return (
             <div key={stageName} className="space-y-2">
@@ -526,7 +587,7 @@ export function PipelineDashboard({
                   </span>
                 </div>
               )}
-              <StageCard stageName={stageName} resolved={resolved} />
+              <StageCard stageName={stageName} resolved={resolved} isStale={isStale} />
             </div>
           );
         })}
